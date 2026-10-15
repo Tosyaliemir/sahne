@@ -19,13 +19,24 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["protocol-asset"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["sync", "time", "macros", "rt"] }
+tokio = { version = "1", features = ["sync", "time", "macros", "rt", "net", "fs"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Already a dependency of reqwest; used directly for URL host checks and file URLs.
+url = "2"
+# Crash-safe cache/config writes (unique temp file + fsync + rename) and a
+# private (0700) fallback directory. Already in the tree via Tauri.
+tempfile = "3"
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
 directories = "6"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+[dev-dependencies]
+# Property tests: parsers must never panic on arbitrary (untrusted) input.
+proptest = { version = "1", default-features = false, features = ["std"] }
+# Local test servers (streamed bodies, redirects).
+tokio = { version = "1", features = ["io-util", "rt-multi-thread"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # MPRIS over the session bus; tokio integration so it shares Tauri's runtime.
