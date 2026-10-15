@@ -203,7 +203,7 @@
     <div class="layout" class:focus={ui.lyricsFocus}>
       <aside class="side" aria-hidden={ui.lyricsFocus}>
         <div class="cover">
-          <CoverArt />
+          <CoverArt active={!ui.lyricsFocus} />
         </div>
         <h1>{player.track.title}</h1>
         <p class="artist">{player.track.artist}</p>

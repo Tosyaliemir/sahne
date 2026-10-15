@@ -2,8 +2,17 @@
   import { untrack, type Snippet } from "svelte";
   import { createElectricBorder, electricSettings, MARGIN } from "../../fx/electricBorder";
 
-  /** Crackling light around `children`, in `color`. Without WebGL2 it simply shows the children. */
-  let { color, radius = 14, children }: { color: string; radius?: number; children: Snippet } = $props();
+  /**
+   * Crackling light around `children`, in `color`. Without WebGL2 it simply
+   * shows the children. `active = false` fades the light out and stops the
+   * render loop (e.g. while the cover is hidden), so it costs nothing.
+   */
+  let {
+    color,
+    radius = 14,
+    active = true,
+    children,
+  }: { color: string; radius?: number; active?: boolean; children: Snippet } = $props();
 
   let container: HTMLElement | undefined = $state();
   let canvas: HTMLCanvasElement | undefined = $state();
@@ -11,7 +20,16 @@
   let generation = $state(0);
 
   const options = $derived(
-    electricSettings({ color, borderRadius: radius, glow: 0.9, intensity: 0.85, chaos: 0.45, spread: 0.55, strands: 3 }),
+    electricSettings({
+      color,
+      active,
+      borderRadius: radius,
+      glow: 0.9,
+      intensity: 0.85,
+      chaos: 0.45,
+      spread: 0.55,
+      strands: 3,
+    }),
   );
   let fx: ReturnType<typeof createElectricBorder> = null;
 

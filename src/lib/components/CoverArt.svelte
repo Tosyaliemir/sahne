@@ -10,7 +10,8 @@
    * The big cover, wearing the effect chosen in settings, colored from the
    * cover's palette. Fills its parent, which sets the size.
    */
-  let { radius = 14 }: { radius?: number } = $props();
+  /** `active = false` while the cover is hidden: animated effects pause. */
+  let { radius = 14, active = true }: { radius?: number; active?: boolean } = $props();
 
   let failed = $state(false);
   $effect(() => {
@@ -49,7 +50,7 @@
 {:else if chosen === "metal"}
   <MetalCover {src} textureSrc={palette.textureSrc} tint={lighten(accent, 0.45)} radius={radius + 4} />
 {:else if chosen === "elektrik"}
-  <ElectricBorder color={accent} {radius}>
+  <ElectricBorder color={accent} {radius} {active}>
     {@render plain()}
   </ElectricBorder>
 {:else}

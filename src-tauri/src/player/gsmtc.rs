@@ -187,11 +187,15 @@ fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()>
 
         let switched = followed.as_ref().is_none_or(|f| f.name != name);
         if switched {
-            let session = all
+            // `chosen` came from this list, so the lookup cannot miss; skip the tick if it does.
+            let Some(session) = all
                 .into_iter()
                 .find(|(n, _, _)| *n == name)
                 .map(|(_, _, s)| s)
-                .expect("chosen name comes from this list");
+            else {
+                std::thread::sleep(TICK);
+                continue;
+            };
             tracing::info!("following {name}");
             disconnect(app, state);
             {
@@ -208,7 +212,10 @@ fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()>
                 art_tries: 0,
             });
         }
-        let f = followed.as_mut().expect("set above");
+        let Some(f) = followed.as_mut() else {
+            std::thread::sleep(TICK);
+            continue;
+        };
 
         let status = match f.session.GetPlaybackInfo().and_then(|i| i.PlaybackStatus()) {
             Ok(Status::Playing) => PlaybackStatus::Playing,
