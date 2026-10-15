@@ -1,5 +1,5 @@
 // Reflective metal plate: a brushed, beveled card that mirrors a blurred
-// image (or video) of its surroundings and tilts toward the pointer.
+// image and tilts toward the pointer. It reflects a single <img> only.
 // Framework-free; see MetalCover.svelte for the wrapper. The tilt and intro
 // are written to CSS variables on `root`: --rc-rotate-x/y, --rc-presence,
 // --rc-lift.
@@ -21,26 +21,20 @@ const CAPTURE = `#version 300 es
 precision highp float;
 in vec2 vUv;
 out vec4 fragColor;
-uniform sampler2D uVideo;
-uniform sampler2D uCam;
-uniform vec4 uVideoMap;
-uniform vec4 uCamMap;
-uniform vec2 uWeights;
-uniform vec2 uLod;
-float level(sampler2D source) {
-  vec3 mean = pow(textureLod(source, vec2(0.5), 14.0).rgb, vec3(2.2));
+uniform sampler2D uImage;
+uniform vec4 uImageMap;
+uniform float uWeight;
+uniform float uLod;
+float level() {
+  vec3 mean = pow(textureLod(uImage, vec2(0.5), 14.0).rgb, vec3(2.2));
   return pow(dot(mean, vec3(0.2126, 0.7152, 0.0722)), 1.0 / 2.2);
 }
 void main() {
   vec3 color = vec3(0.0);
   float mean = 0.0;
-  if (uWeights.x > 0.0) {
-    color += textureLod(uVideo, vUv * uVideoMap.xy + uVideoMap.zw, uLod.x).rgb * uWeights.x;
-    mean += level(uVideo) * uWeights.x;
-  }
-  if (uWeights.y > 0.0) {
-    color += textureLod(uCam, vUv * uCamMap.xy + uCamMap.zw, uLod.y).rgb * uWeights.y;
-    mean += level(uCam) * uWeights.y;
+  if (uWeight > 0.0) {
+    color = textureLod(uImage, vUv * uImageMap.xy + uImageMap.zw, uLod).rgb * uWeight;
+    mean = level() * uWeight;
   }
   fragColor = vec4(color, mean);
 }`;
@@ -329,12 +323,11 @@ const link = (gl, fragmentSource) => {
   return { program, uniforms };
 };
 
-const coverMap = (width, height, aspect, mirror) => {
+const coverMap = (width, height, aspect) => {
   const ratio = width / Math.max(1, height);
   const sx = ratio > aspect ? aspect / ratio : 1;
   const sy = ratio > aspect ? 1 : ratio / aspect;
-  const u = mirror ? -sx : sx;
-  return [u, -sy, 0.5 - u * 0.5, 0.5 + sy * 0.5];
+  return [sx, -sy, 0.5 - sx * 0.5, 0.5 + sy * 0.5];
 };
 
 const lodFor = (width, height, envWidth, aspect) => {
@@ -401,7 +394,7 @@ const createRenderer = canvas => {
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
 
-  const textures = { video: createTexture(true, gl.CLAMP_TO_EDGE), cam: createTexture(true, gl.CLAMP_TO_EDGE) };
+  const imageTexture = createTexture(true, gl.CLAMP_TO_EDGE);
   const capture = createTarget();
   const blurX = createTarget();
   const blurY = createTarget();
@@ -419,9 +412,9 @@ const createRenderer = canvas => {
     gl.bindTexture(gl.TEXTURE_2D, texture);
   };
 
-  const upload = (key, element) => {
+  const upload = element => {
     try {
-      gl.bindTexture(gl.TEXTURE_2D, textures[key]);
+      gl.bindTexture(gl.TEXTURE_2D, imageTexture);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, element);
@@ -432,7 +425,7 @@ const createRenderer = canvas => {
     }
   };
 
-  const renderEnv = ({ width, height, scale, blur, roughness, video, cam }) => {
+  const renderEnv = ({ width, height, scale, blur, roughness, image }) => {
     const envScale = clamp(2.5 / Math.max(blur, 0.01), 0.12, scale);
     const envWidth = Math.max(8, Math.ceil(width * OVERSCAN * envScale));
     const envHeight = Math.max(8, Math.ceil(height * OVERSCAN * envScale));
@@ -440,22 +433,13 @@ const createRenderer = canvas => {
     allocate(blurX, envWidth, envHeight);
     allocate(blurY, envWidth, envHeight);
     const aspect = width / Math.max(1, height);
-    const total = 1 - (1 - video.mix) * (1 - cam.mix);
-    const camWeight = total > 0 ? cam.mix / total : 0;
 
     let u = pass(capture, captureProgram);
-    bind(0, textures.video);
-    bind(1, textures.cam);
-    gl.uniform1i(u.uVideo, 0);
-    gl.uniform1i(u.uCam, 1);
-    gl.uniform4fv(u.uVideoMap, video.ready ? coverMap(video.width, video.height, aspect, false) : [1, 1, 0, 0]);
-    gl.uniform4fv(u.uCamMap, cam.ready ? coverMap(cam.width, cam.height, aspect, true) : [1, 1, 0, 0]);
-    gl.uniform2f(u.uWeights, video.ready && total > 0 ? 1 - camWeight : 0, cam.ready ? camWeight : 0);
-    gl.uniform2f(
-      u.uLod,
-      video.ready ? lodFor(video.width, video.height, envWidth, aspect) : 0,
-      cam.ready ? lodFor(cam.width, cam.height, envWidth, aspect) : 0
-    );
+    bind(0, imageTexture);
+    gl.uniform1i(u.uImage, 0);
+    gl.uniform4fv(u.uImageMap, image.ready ? coverMap(image.width, image.height, aspect) : [1, 1, 0, 0]);
+    gl.uniform1f(u.uWeight, image.ready && image.mix > 0 ? 1 : 0);
+    gl.uniform1f(u.uLod, image.ready ? lodFor(image.width, image.height, envWidth, aspect) : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     u = pass(blurX, blurProgram);
@@ -510,8 +494,7 @@ const createRenderer = canvas => {
       gl.deleteFramebuffer(target.framebuffer);
       gl.deleteTexture(target.texture);
     }
-    gl.deleteTexture(textures.video);
-    gl.deleteTexture(textures.cam);
+    gl.deleteTexture(imageTexture);
     gl.deleteBuffer(buffer);
     gl.deleteVertexArray(vao);
     for (const item of [captureProgram, blurProgram, plateProgram]) gl.deleteProgram(item.program);
@@ -560,12 +543,9 @@ export function reflectiveSettings({
 
 /**
  * `root` receives the pointer and the CSS variables, `body` is measured,
- * `canvas` draws the plate. `media` is an <img> or <video> to reflect; `cam`
- * an optional second <video> (unused sources simply never become ready).
+ * `canvas` draws the plate, `image` is the <img> it reflects.
  */
-export function createReflectivePlate({ root, body, canvas, media, cam }, getSettings, { isFirst = true, onRestore = () => {} } = {}) {
-  const videoElement = media;
-  const camElement = cam ?? document.createElement('video');
+export function createReflectivePlate({ root, body, canvas, image }, getSettings, { isFirst = true, onRestore = () => {} } = {}) {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const renderer = createRenderer(canvas);
   const x = { p: 0, v: 0, target: 0 };
@@ -573,17 +553,7 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
   const light = { p: 0, target: 0 };
   const pointer = { x: 0, y: 0 };
   const size = { width: body.offsetWidth, height: body.offsetHeight, scale: 1 };
-  const makeSource = element => ({
-    element,
-    src: '',
-    time: -1,
-    ready: false,
-    failed: false,
-    width: 0,
-    height: 0,
-    mix: 0
-  });
-  const sources = { video: makeSource(videoElement), cam: makeSource(camElement) };
+  const source = { element: image, src: '', ready: false, failed: false, width: 0, height: 0, mix: 0 };
   let presence = 1;
   let presenceStart = 0;
   let slowUntil = 0;
@@ -607,40 +577,28 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
     style.setProperty('--rc-lift', `${((1 - eased) * 14).toFixed(2)}px`);
   };
 
-  const refresh = (key, source) => {
+  /** Uploads the image once per new src; true when the texture changed. */
+  const refresh = () => {
     const element = source.element;
-    const src = element.srcObject ? 'stream' : element.currentSrc;
+    const src = element.currentSrc;
     if (src !== source.src) {
       source.src = src;
       source.failed = false;
-      source.time = -1;
-    }
-    if (!src) {
       source.ready = false;
-      return false;
     }
-    if (element.error) {
+    if (!src || source.ready || source.failed) return false;
+    if (!element.complete || !element.naturalWidth) return false;
+    if (!renderer || !renderer.upload(element)) {
       source.failed = true;
       return false;
     }
-    const isImage = element instanceof HTMLImageElement;
-    const naturalW = isImage ? element.naturalWidth : element.videoWidth;
-    const naturalH = isImage ? element.naturalHeight : element.videoHeight;
-    if ((isImage ? !element.complete : element.readyState < 2) || !naturalW) return false;
-    const time = isImage ? 0 : element.currentTime;
-    if (source.ready && time === source.time) return false;
-    if (!renderer || !renderer.upload(key, element)) {
-      source.failed = true;
-      return false;
-    }
-    source.time = time;
-    source.width = naturalW;
-    source.height = naturalH;
+    source.width = element.naturalWidth;
+    source.height = element.naturalHeight;
     source.ready = true;
     return true;
   };
 
-  const fade = (source, dt) => {
+  const fade = dt => {
     const target = source.ready && !source.failed && source.src ? 1 : 0;
     const before = source.mix;
     source.mix += (target - source.mix) * (1 - Math.exp(-dt / FADE_SECONDS));
@@ -697,30 +655,25 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
     }
     write();
 
-    let playing = false;
+    let fading = false;
     if (renderer) {
-      if (sources.cam.mix < 1 && refresh('video', sources.video)) envFresh = true;
-      if (refresh('cam', sources.cam)) envFresh = true;
-      for (const source of [sources.video, sources.cam]) {
-        if (source.src && !source.failed && source.element.paused === false) playing = true;
-        if (fade(source, dt)) envFresh = true;
-        if (source.mix > 0 && source.mix < 1) playing = true;
-      }
+      if (refresh()) envFresh = true;
+      if (fade(dt)) envFresh = true;
+      if (source.mix > 0 && source.mix < 1) fading = true;
       const s = getSettings();
       const key = `${s.blurStrength}|${s.roughness}|${size.width}|${size.height}|${size.scale}`;
       if (key !== envKey) {
         envKey = key;
         envFresh = true;
       }
-      if (envFresh && (sources.video.mix > 0 || sources.cam.mix > 0)) {
+      if (envFresh && source.mix > 0) {
         renderer.renderEnv({
           width: size.width,
           height: size.height,
           scale: size.scale,
           blur: s.blurStrength,
           roughness: s.roughness,
-          video: sources.video,
-          cam: sources.cam
+          image: source
         });
       }
       envFresh = false;
@@ -730,7 +683,7 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
         height: size.height,
         rotateX: y.p * angle,
         rotateY: -x.p * angle,
-        capture: 1 - (1 - sources.video.mix) * (1 - sources.cam.mix),
+        capture: source.mix,
         glare: s.glare * light.p,
         pointerX: pointer.x,
         pointerY: pointer.y,
@@ -738,7 +691,7 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
       });
     }
 
-    if ((moving || playing) && visible && pageVisible) raf = requestAnimationFrame(frame);
+    if ((moving || fading) && visible && pageVisible) raf = requestAnimationFrame(frame);
   };
 
   const wake = () => {
@@ -813,13 +766,6 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
 
   const intersection = new IntersectionObserver(entries => {
     visible = entries.some(entry => entry.isIntersecting);
-    if (!reduced) {
-      for (const element of [videoElement, camElement]) {
-        if (typeof element.play !== 'function') continue;
-        if (visible && (element.currentSrc || element.srcObject)) element.play().catch(() => {});
-        else if (!visible && element.currentSrc && !element.srcObject) element.pause();
-      }
-    }
     wake();
   });
   intersection.observe(root);
@@ -830,11 +776,9 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
   };
   document.addEventListener('visibilitychange', onVisibility);
 
-  const onMedia = () => wake();
-  const mediaEvents = ['load', 'loadeddata', 'playing', 'seeked', 'emptied', 'error'];
-  for (const element of [videoElement, camElement]) {
-    for (const type of mediaEvents) element.addEventListener(type, onMedia);
-  }
+  const onImage = () => wake();
+  image.addEventListener('load', onImage);
+  image.addEventListener('error', onImage);
 
   if (getSettings().intro && !reduced && isFirst) {
     x.p = 0.62;
@@ -862,9 +806,8 @@ export function createReflectivePlate({ root, body, canvas, media, cam }, getSet
     root.removeEventListener('pointercancel', onUp);
     canvas.removeEventListener('webglcontextlost', onLost);
     canvas.removeEventListener('webglcontextrestored', onRestored);
-    for (const element of [videoElement, camElement]) {
-      for (const type of mediaEvents) element.removeEventListener(type, onMedia);
-    }
+    image.removeEventListener('load', onImage);
+    image.removeEventListener('error', onImage);
     renderer?.dispose();
   };
 

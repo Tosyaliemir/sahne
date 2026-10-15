@@ -21,8 +21,7 @@ export function createReflectivePlate(
     root: HTMLElement;
     body: HTMLElement;
     canvas: HTMLCanvasElement;
-    media: HTMLImageElement | HTMLVideoElement;
-    cam?: HTMLVideoElement;
+    image: HTMLImageElement;
   },
   getSettings: () => ReturnType<typeof reflectiveSettings>,
   opts?: { isFirst?: boolean; onRestore?: () => void },

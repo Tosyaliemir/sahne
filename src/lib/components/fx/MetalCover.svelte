@@ -28,7 +28,7 @@
   $effect(() => {
     const gen = generation;
     if (!root || !body || !canvas || !media) return;
-    const els = { root, body, canvas, media };
+    const els = { root, body, canvas, image: media };
     const created = untrack(() =>
       createReflectivePlate(els, () => options, { isFirst: gen === 0, onRestore: () => generation++ }),
     );
