@@ -21,13 +21,10 @@ use lrclib::{FetchError, Record};
 
 /// Negative results are retried after a day; positive ones are kept forever.
 const NOT_FOUND_TTL_S: u64 = 24 * 60 * 60;
-/// Retry delays while offline: quick at first (most "offline" moments are
-/// a dropped connection), then settling at the maximum.
-const OFFLINE_RETRY_MIN: Duration = Duration::from_secs(2);
-const OFFLINE_RETRY_MAX: Duration = Duration::from_secs(20);
+const OFFLINE_RETRY: Duration = Duration::from_secs(20);
 /// When LRCLIB stays busy (429/5xx) beyond our in-request retries, wait this long
 /// (doubling, capped) and try again while the track is still playing.
-const RATE_LIMIT_RETRY: Duration = Duration::from_secs(2);
+const RATE_LIMIT_RETRY: Duration = Duration::from_secs(3);
 const RATE_LIMIT_RETRY_MAX: Duration = Duration::from_secs(60);
 
 /// Bumped whenever lookup rules change so stale (possibly junk) entries are refetched.
@@ -161,8 +158,6 @@ impl LyricsService {
         let this = Arc::clone(self);
         let task = tauri::async_runtime::spawn(async move {
             let mut rate_limit_wait = RATE_LIMIT_RETRY;
-            let mut offline_wait = OFFLINE_RETRY_MIN;
-            let mut offline_strikes = 0u32;
             loop {
                 let result = this.resolve(&track).await;
                 if this.generation.load(Ordering::SeqCst) != generation {
@@ -180,16 +175,9 @@ impl LyricsService {
                         return;
                     }
                     Err(FetchError::Offline(e)) => {
-                        tracing::info!(
-                            "offline while fetching lyrics: {e}; retrying in {offline_wait:?}"
-                        );
-                        // One failure is usually a blip; say "offline" only if it persists.
-                        offline_strikes += 1;
-                        if offline_strikes >= 2 {
-                            this.publish(&app, generation, &track, LyricsState::Offline, None);
-                        }
-                        tokio::time::sleep(offline_wait).await;
-                        offline_wait = (offline_wait * 2).min(OFFLINE_RETRY_MAX);
+                        tracing::info!("offline while fetching lyrics: {e}");
+                        this.publish(&app, generation, &track, LyricsState::Offline, None);
+                        tokio::time::sleep(OFFLINE_RETRY).await;
                         if this.generation.load(Ordering::SeqCst) != generation {
                             return;
                         }

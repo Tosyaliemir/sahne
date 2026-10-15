@@ -97,10 +97,6 @@ impl Client {
             .user_agent(user_agent)
             .timeout(Duration::from_secs(10))
             .connect_timeout(Duration::from_secs(5))
-            // Songs are a few minutes apart; keeping the TLS connection
-            // alive between them saves a handshake (~0.3-0.6 s) per track.
-            .pool_idle_timeout(Duration::from_secs(600))
-            .tcp_keepalive(Duration::from_secs(60))
             .build()?;
         Ok(Self {
             http,
