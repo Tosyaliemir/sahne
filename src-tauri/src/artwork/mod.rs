@@ -42,6 +42,8 @@ pub struct ArtworkService {
     dir: PathBuf,
     current: Mutex<Option<PaletteChanged>>,
     generation: AtomicU64,
+    /// Current palette for other services (lighting).
+    palette_tx: watch::Sender<Palette>,
 }
 
 impl ArtworkService {
@@ -56,7 +58,12 @@ impl ArtworkService {
             dir: paths.art_cache(),
             current: Mutex::new(None),
             generation: AtomicU64::new(0),
+            palette_tx: watch::Sender::new(Palette::default()),
         }
+    }
+
+    pub fn subscribe_palette(&self) -> watch::Receiver<Palette> {
+        self.palette_tx.subscribe()
     }
 
     pub fn current(&self) -> Option<PaletteChanged> {
@@ -110,6 +117,7 @@ impl ArtworkService {
             return;
         }
         *lock(&self.current) = Some(payload.clone());
+        self.palette_tx.send_replace(payload.palette.clone());
         tracing::debug!("palette for {}: {:?}", track.title, payload.palette);
         if let Err(e) = app.emit(events::PALETTE_CHANGED, payload) {
             tracing::warn!("failed to emit palette: {e}");

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { LyricsLoaded } from "../types";
 import { player } from "./player.svelte";
+import { settings } from "./settings.svelte";
 
 export const OFFSET_STEP_MS = 100;
 
@@ -12,6 +13,11 @@ class LyricsStore {
   get forTrack(): LyricsLoaded | null {
     const c = this.current;
     return c && player.track && c.track_id === player.track.id ? c : null;
+  }
+
+  /** Track offset plus the user's global offset; positive shows lyrics later. */
+  get totalOffsetMs(): number {
+    return (this.forTrack?.offset_ms ?? 0) + settings.current.global_offset_ms;
   }
 
   async start(): Promise<() => void> {

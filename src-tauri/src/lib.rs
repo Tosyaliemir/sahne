@@ -1,24 +1,32 @@
 mod artwork;
 mod error;
 mod events;
+mod lighting;
 mod lyrics;
 mod paths;
 mod player;
+mod settings;
+mod windows;
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 
 use artwork::ArtworkService;
 use error::AppResult;
 use events::{LyricsLoaded, PaletteChanged, PlayerSnapshot};
+use lighting::{LightingService, LightingStatus};
 use lyrics::LyricsService;
 use paths::Paths;
 use player::PlayerState;
+use settings::{Settings, SettingsStore};
 
 type Player<'a> = State<'a, Arc<PlayerState>>;
 type Lyrics<'a> = State<'a, Arc<LyricsService>>;
 type Artwork<'a> = State<'a, Arc<ArtworkService>>;
+type SettingsState<'a> = State<'a, Arc<SettingsStore>>;
+
+const SETTINGS_CHANGED: &str = "settings-changed";
 
 #[tauri::command]
 fn get_state(player: Player<'_>) -> PlayerSnapshot {
@@ -65,6 +73,50 @@ fn retry_lyrics(app: AppHandle, lyrics: Lyrics<'_>) {
     lyrics.retry(&app);
 }
 
+#[tauri::command]
+fn get_settings(settings: SettingsState<'_>) -> Settings {
+    settings.get()
+}
+
+/// Persists settings, applies the backend-relevant parts and tells every window.
+#[tauri::command]
+fn save_settings(
+    app: AppHandle,
+    settings: SettingsState<'_>,
+    player: Player<'_>,
+    new_settings: Settings,
+) -> Settings {
+    let saved = settings.set(new_settings);
+    player.set_preferred(effective_preferred_player(&saved));
+    if let Err(e) = app.emit(SETTINGS_CHANGED, saved.clone()) {
+        tracing::warn!("failed to emit settings: {e}");
+    }
+    saved
+}
+
+#[tauri::command]
+fn lighting_status(lighting: State<'_, Arc<LightingService>>) -> LightingStatus {
+    lighting.status()
+}
+
+#[tauri::command]
+async fn list_players() -> AppResult<Vec<String>> {
+    player::list_players().await
+}
+
+#[tauri::command]
+fn set_mini_mode(app: AppHandle, settings: SettingsState<'_>, enabled: bool) -> Result<(), String> {
+    windows::set_mini_mode(&app, &settings, enabled).map_err(|e| e.to_string())
+}
+
+/// `SAHNE_PLAYER` (handy for the mock player) overrides the saved preference.
+fn effective_preferred_player(settings: &Settings) -> Option<String> {
+    std::env::var("SAHNE_PLAYER")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| settings.preferred_player.clone())
+}
+
 /// Lets the webview report errors into our log, where they are visible.
 #[tauri::command]
 fn frontend_log(level: String, message: String) {
@@ -106,10 +158,9 @@ pub fn run() {
         tracing::warn!("no home directory; using a temporary location for settings and caches");
         Paths::temporary()
     });
-    // Until the settings panel exists, SAHNE_PLAYER selects a non-Spotify player
-    // (e.g. `SAHNE_PLAYER=sahnemock` for the mock player).
-    let preferred = std::env::var("SAHNE_PLAYER").ok().filter(|s| !s.is_empty());
-    let player = Arc::new(PlayerState::new(preferred));
+    let settings = Arc::new(SettingsStore::load(&paths));
+    let initial = settings.get();
+    let player = Arc::new(PlayerState::new(effective_preferred_player(&initial)));
     let lyrics = Arc::new(LyricsService::new(&paths));
     let artwork = Arc::new(ArtworkService::new(&paths));
 
@@ -117,14 +168,27 @@ pub fn run() {
         .manage(player.clone())
         .manage(lyrics.clone())
         .manage(artwork.clone())
+        .manage(settings.clone())
         .setup(move |app| {
             // Development aid: tell test instances apart from the everyday one.
-            if let (Ok(title), Some(window)) =
-                (std::env::var("SAHNE_TITLE"), app.get_webview_window("main"))
-            {
+            if let (Ok(title), Some(window)) = (
+                std::env::var("SAHNE_TITLE"),
+                app.get_webview_window(windows::MAIN),
+            ) {
                 let _ = window.set_title(&title);
             }
+            if initial.start_fullscreen {
+                if let Some(window) = app.get_webview_window(windows::MAIN) {
+                    let _ = window.set_fullscreen(true);
+                }
+            }
             let handle = app.handle().clone();
+            let lighting = LightingService::spawn(
+                handle.clone(),
+                settings.subscribe(),
+                artwork.subscribe_palette(),
+            );
+            app.manage(lighting);
             lyrics.spawn(handle.clone(), player.subscribe_tracks());
             artwork.spawn(handle.clone(), player.subscribe_tracks());
             player::spawn(handle, player);
@@ -140,11 +204,27 @@ pub fn run() {
             get_palette,
             set_lyrics_offset,
             retry_lyrics,
+            get_settings,
+            save_settings,
+            list_players,
+            set_mini_mode,
+            lighting_status,
             frontend_log
         ])
-        .run(tauri::generate_context!());
-    if let Err(e) = result {
-        tracing::error!("failed to start Sahne: {e}");
-        std::process::exit(1);
-    }
+        .build(tauri::generate_context!());
+    let app = match result {
+        Ok(app) => app,
+        Err(e) => {
+            tracing::error!("failed to start Sahne: {e}");
+            std::process::exit(1);
+        }
+    };
+    app.run(|handle, event| {
+        if let RunEvent::Exit = event {
+            // Hand the LEDs back before the process ends.
+            if let Some(lighting) = handle.try_state::<Arc<LightingService>>() {
+                lighting.shutdown();
+            }
+        }
+    });
 }

@@ -81,3 +81,20 @@ export interface PaletteChanged {
   background_path: string | null;
   palette: Palette;
 }
+
+export type LyricsStyleSetting = "klasik" | "kinetik" | "sade";
+export type LightingMode = "sabit" | "gradyan" | "nefes";
+
+export interface Settings {
+  preferred_player: string | null;
+  lyrics_style: LyricsStyleSetting;
+  font: "embedded" | "system";
+  font_scale: number;
+  backdrop_blur: number;
+  backdrop_dim: number;
+  global_offset_ms: number;
+  mini_position: [number, number] | null;
+  start_fullscreen: boolean;
+  lighting: { enabled: boolean; mode: LightingMode; devices: string[] };
+  language: "tr" | "en";
+}

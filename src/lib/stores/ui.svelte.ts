@@ -5,7 +5,7 @@ const reducedMotion =
   typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
 
 class UiStore {
-  /** Style chosen by the user (persisted by the settings store). */
+  /** Style chosen by the user; the settings store keeps it in sync. */
   style = $state<LyricsStyle>("klasik");
   reducedMotion = $state(reducedMotion?.matches ?? false);
   controlsVisible = $state(true);
@@ -20,9 +20,8 @@ class UiStore {
     return this.reducedMotion ? "sade" : this.style;
   }
 
-  cycleStyle(): LyricsStyle {
-    this.style = STYLES[(STYLES.indexOf(this.style) + 1) % STYLES.length];
-    return this.style;
+  nextStyle(): LyricsStyle {
+    return STYLES[(STYLES.indexOf(this.style) + 1) % STYLES.length];
   }
 }
 

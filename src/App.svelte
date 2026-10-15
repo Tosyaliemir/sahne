@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { invoke } from "@tauri-apps/api/core";
   import { player } from "./lib/stores/player.svelte";
   import { lyrics, OFFSET_STEP_MS } from "./lib/stores/lyrics.svelte";
   import { palette } from "./lib/stores/palette.svelte";
   import { ui } from "./lib/stores/ui.svelte";
+  import { settings } from "./lib/stores/settings.svelte";
+  import { lighting } from "./lib/stores/lighting.svelte";
   import { t } from "./lib/i18n/index.svelte";
   import Background from "./lib/components/Background.svelte";
   import StatusScreen from "./lib/components/StatusScreen.svelte";
@@ -13,6 +16,7 @@
   import PlainLyrics from "./lib/components/PlainLyrics.svelte";
   import TrackHero from "./lib/components/TrackHero.svelte";
   import ControlBar from "./lib/components/ControlBar.svelte";
+  import SettingsPanel from "./lib/components/SettingsPanel.svelte";
 
   const HIDE_CONTROLS_MS = 2000;
 
@@ -21,6 +25,8 @@
 
   onMount(() => {
     const stops: (() => void)[] = [];
+    settings.start().then((s) => stops.push(s));
+    lighting.start().then((s) => stops.push(s));
     player.start().then((s) => stops.push(s));
     lyrics.start().then((s) => stops.push(s));
     palette.start().then((s) => stops.push(s));
@@ -70,12 +76,13 @@
   }
 
   function cycleStyle() {
-    const style = ui.cycleStyle();
+    const style = ui.nextStyle();
+    settings.update({ lyrics_style: style });
     showToast(t("toast.style", { name: t(`style.${style}` as const) }));
   }
 
   function openMini() {
-    // Mini mode arrives with stage 5.
+    invoke("set_mini_mode", { enabled: true }).catch((err) => console.warn("set_mini_mode failed", err));
   }
 
   function openSettings() {
@@ -84,6 +91,10 @@
 
   function onKey(e: KeyboardEvent) {
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (ui.settingsOpen) {
+      if (e.key === "Escape" || e.key === ",") ui.settingsOpen = false;
+      return;
+    }
     if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select, [role=slider]")) return;
     switch (e.key) {
       case " ":
@@ -181,6 +192,10 @@
     <div class="toast" role="status">{toast}</div>
   {/if}
 </main>
+
+{#if ui.settingsOpen}
+  <SettingsPanel onClose={() => (ui.settingsOpen = false)} />
+{/if}
 
 <ControlBar
   visible={ui.controlsVisible && player.connected}

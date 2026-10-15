@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import { palette } from "../stores/palette.svelte";
+  import { ui } from "../stores/ui.svelte";
 </script>
 
 <!-- Layers, bottom to top: palette color, blurred artwork, mesh gradient, dimmer.
@@ -12,7 +13,7 @@
         class="art"
         src={palette.backgroundSrc}
         alt=""
-        transition:fade={{ duration: 800 }}
+        transition:fade={{ duration: ui.reducedMotion ? 0 : 800 }}
         onerror={() => console.warn("backdrop failed to load", palette.backgroundSrc)}
       />
     {/if}

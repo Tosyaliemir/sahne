@@ -1,6 +1,8 @@
 import { mount } from "svelte";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import App from "./App.svelte";
+import MiniApp from "./MiniApp.svelte";
 import "./app.css";
 
 function report(level: "error" | "warn", message: string) {
@@ -22,4 +24,6 @@ console.error = (...args: unknown[]) => {
 const target = document.getElementById("app");
 if (!target) throw new Error("#app missing from index.html");
 
-export default mount(App, { target });
+// Both windows load the same page; the window label picks the UI.
+const isMini = getCurrentWindow().label === "mini";
+export default mount(isMini ? MiniApp : App, { target });

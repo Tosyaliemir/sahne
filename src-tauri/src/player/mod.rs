@@ -40,8 +40,10 @@ struct Shared {
 pub struct PlayerState {
     shared: Mutex<Shared>,
     repoll: Notify,
+    /// Wakes the follow loop to re-run player selection (preference changed).
+    reselect: Notify,
     started: Instant,
-    preferred: Option<String>,
+    preferred: Mutex<Option<String>>,
     /// Current track for the lyrics and artwork services.
     track_tx: watch::Sender<Option<TrackInfo>>,
 }
@@ -54,9 +56,26 @@ impl PlayerState {
                 ..Default::default()
             }),
             repoll: Notify::new(),
+            reselect: Notify::new(),
             started: Instant::now(),
-            preferred,
+            preferred: Mutex::new(preferred),
             track_tx: watch::Sender::new(None),
+        }
+    }
+
+    fn preferred(&self) -> Option<String> {
+        self.preferred
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    /// Changes which player to prefer and re-runs selection right away.
+    pub fn set_preferred(&self, preferred: Option<String>) {
+        let mut cur = self.preferred.lock().unwrap_or_else(|e| e.into_inner());
+        if *cur != preferred {
+            *cur = preferred;
+            self.reselect.notify_one();
         }
     }
 
@@ -169,7 +188,7 @@ async fn run_session(
     tracing::info!("connected to session bus");
 
     loop {
-        let Some(name) = select_player(&conn, &dbus, state.preferred.as_deref()).await? else {
+        let Some(name) = select_player(&conn, &dbus, state.preferred().as_deref()).await? else {
             disconnect(app, state);
             tracing::info!("no MPRIS player found, waiting");
             // Wait until some MPRIS player appears.
@@ -196,6 +215,20 @@ async fn run_session(
             }
         }
     }
+}
+
+/// Short names of all MPRIS players currently on the bus, for the settings UI.
+pub async fn list_players() -> AppResult<Vec<String>> {
+    let conn = Connection::session().await?;
+    let dbus = DBusProxy::new(&conn).await?;
+    let mut names: Vec<String> = dbus
+        .list_names()
+        .await?
+        .iter()
+        .filter_map(|n| n.as_str().strip_prefix(MPRIS_PREFIX).map(str::to_owned))
+        .collect();
+    names.sort();
+    Ok(names)
 }
 
 /// Lists MPRIS players with their playing state and applies the selection rules.
@@ -294,6 +327,12 @@ async fn follow(
                 tokio::time::sleep(REPOLL_DELAY).await;
                 poll_position(app, state, &proxy, true).await;
             }
+            _ = state.reselect.notified() => {
+                let best = select_player(conn, dbus, state.preferred().as_deref()).await?;
+                if best.as_deref() != Some(bus_name) {
+                    return Ok(Exit::Reselect);
+                }
+            }
             signal = owners.next() => {
                 let signal = signal.ok_or_else(|| zbus::Error::InputOutput(
                     std::io::Error::other("NameOwnerChanged stream ended").into(),
@@ -307,7 +346,7 @@ async fn follow(
                     return Ok(Exit::Reselect);
                 }
                 if args.new_owner().is_some() {
-                    let best = select_player(conn, dbus, state.preferred.as_deref()).await?;
+                    let best = select_player(conn, dbus, state.preferred().as_deref()).await?;
                     if best.as_deref() != Some(bus_name) {
                         return Ok(Exit::Reselect);
                     }

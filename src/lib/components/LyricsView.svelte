@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { lyrics } from "../stores/lyrics.svelte";
   import {
     activeLineIndex,
     activeWordIndex,
@@ -103,7 +104,7 @@
   let lastActiveWord = -1;
 
   function frame(now: number) {
-    const t = lyricTime(player.clock.position(now), data.offset_ms);
+    const t = lyricTime(player.clock.position(now), lyrics.totalOffsetMs);
     const idx = activeLineIndex(lines, t);
     if (idx !== active) {
       resetLine(active);
@@ -164,7 +165,7 @@
   });
 
   function seekTo(line: Line) {
-    player.seek(Math.max(0, line.start_ms + data.offset_ms));
+    player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs));
   }
 </script>
 

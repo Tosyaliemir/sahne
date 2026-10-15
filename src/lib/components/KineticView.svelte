@@ -3,6 +3,7 @@
   import { backOut, cubicIn } from "svelte/easing";
   import type { LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { lyrics } from "../stores/lyrics.svelte";
   import { activeLineIndex, interludeAt, lyricTime, wordProgress, wordTimings } from "../timing";
   import Interlude from "./Interlude.svelte";
 
@@ -39,7 +40,7 @@
   let lastP = -1;
 
   function frame(now: number) {
-    const t = lyricTime(player.clock.position(now), data.offset_ms);
+    const t = lyricTime(player.clock.position(now), lyrics.totalOffsetMs);
     const brk = interludeAt(data.lines, t);
     if (!!brk !== inBreak) inBreak = !!brk;
     if (brk && dotsEl) dotsEl.style.setProperty("--progress", brk.progress.toFixed(3));
