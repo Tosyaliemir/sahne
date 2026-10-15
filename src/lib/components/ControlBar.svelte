@@ -97,7 +97,9 @@
     right: 1.25rem;
     bottom: 1.25rem;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 34rem) minmax(0, 1fr);
+    /* The tools never shrink below their content (they used to overlap); the
+       track info gives way instead. */
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 34rem) minmax(max-content, 1fr);
     align-items: center;
     gap: 1.5rem;
     padding: 0.75rem 1.25rem;
@@ -208,6 +210,9 @@
     margin: 0 0.35rem;
     background: var(--rail);
   }
+  .tools > :global(*) {
+    flex: none;
+  }
   .tools button {
     display: grid;
     place-items: center;
@@ -230,6 +235,17 @@
     width: 1.25rem;
     height: 1.25rem;
     fill: currentColor;
+  }
+  @media (max-width: 1000px) {
+    .bar {
+      gap: 1rem;
+    }
+    .meta {
+      display: none;
+    }
+    .tools :global(.volume .track) {
+      width: 4rem;
+    }
   }
   .style-name {
     font-size: 0.8rem;

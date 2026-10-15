@@ -34,6 +34,20 @@ pub enum BackdropStyle {
     Renk,
 }
 
+/// What the cover in the split view (and the no-lyrics screen) wears.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CoverEffect {
+    /// Cover set into a brushed metal plate that mirrors it.
+    Metal,
+    /// Crackling light running around the cover's edge.
+    Elektrik,
+    /// No effect; also what a removed effect (e.g. an old "holo") reads as.
+    /// `serde(other)` must be on the last variant.
+    #[serde(other)]
+    Yok,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FontChoice {
@@ -80,6 +94,7 @@ pub struct Settings {
     /// While the screensaver shows, keep the screen from blanking/locking.
     /// Off by default: it delays the system lock screen.
     pub screensaver_keep_awake: bool,
+    pub cover_effect: CoverEffect,
 }
 
 impl Default for Settings {
@@ -101,6 +116,7 @@ impl Default for Settings {
             screensaver_enabled: true,
             screensaver_minutes: 3,
             screensaver_keep_awake: false,
+            cover_effect: CoverEffect::Yok,
         }
     }
 }
@@ -221,6 +237,14 @@ mod tests {
             LyricsStyle::Sade
         );
         std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn removed_cover_effect_falls_back_to_none() {
+        let s: Settings =
+            serde_json::from_value(json!({"cover_effect": "holo", "language": "en"})).unwrap();
+        assert_eq!(s.cover_effect, CoverEffect::Yok);
+        assert_eq!(s.language, Language::En);
     }
 
     #[test]

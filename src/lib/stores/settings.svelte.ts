@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   screensaver_enabled: true,
   screensaver_minutes: 3,
   screensaver_keep_awake: false,
+  cover_effect: "yok",
 };
 
 class SettingsStore {

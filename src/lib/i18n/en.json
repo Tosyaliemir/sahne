@@ -78,5 +78,9 @@
   "settings.seconds": "after {n} s",
   "settings.neverHide": "Never",
   "lyrics.expand": "Enlarge lyrics (L)",
-  "controls.showCover": "Show cover (L)"
+  "controls.showCover": "Show cover (L)",
+  "settings.coverEffect": "Cover effect",
+  "coverEffect.yok": "None",
+  "coverEffect.metal": "Metal plate",
+  "coverEffect.elektrik": "Electric border"
 }

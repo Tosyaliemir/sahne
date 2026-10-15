@@ -106,4 +106,7 @@ export interface Settings {
   screensaver_enabled: boolean;
   screensaver_minutes: number;
   screensaver_keep_awake: boolean;
+  cover_effect: CoverEffect;
 }
+
+export type CoverEffect = "yok" | "metal" | "elektrik";

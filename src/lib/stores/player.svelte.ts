@@ -109,7 +109,9 @@ class PlayerStore {
 
   // While the user drags the slider, show their value and ignore the
   // player's echoes; send updates at most every VOLUME_SEND_MS.
-  private volumeTouchedAt = 0;
+  // -Infinity, not 0: performance.now() starts near 0 on page load, so a 0
+  // here made the first ~600 ms of volume reports look like slider echoes.
+  private volumeTouchedAt = -Infinity;
   private volumeTimer: ReturnType<typeof setTimeout> | undefined;
   private volumePending: number | null = null;
 

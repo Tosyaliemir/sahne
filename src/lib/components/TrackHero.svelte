@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { TrackInfo } from "../types";
-  import { palette } from "../stores/palette.svelte";
-  import { t } from "../i18n/index.svelte";
+  import CoverArt from "./CoverArt.svelte";
 
   /** Big artwork + track info, shown when there are no lyrics to display. */
   let { track, message, action }: {
@@ -9,21 +8,11 @@
     message: string;
     action?: { label: string; run: () => void };
   } = $props();
-
-  let failed = $state(false);
-  $effect(() => {
-    void palette.artSrc;
-    failed = false;
-  });
 </script>
 
 <div class="hero">
   <div class="art">
-    {#if palette.artSrc && !failed}
-      <img src={palette.artSrc} alt="" onerror={() => (failed = true)} />
-    {:else}
-      <div class="placeholder" aria-label={t("track.noArt")}>♪</div>
-    {/if}
+    <CoverArt />
   </div>
   <div class="info">
     <h1>{track.title}</h1>
@@ -51,23 +40,6 @@
     flex: none;
     width: min(42vh, 36vw);
     aspect-ratio: 1;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
-    background: var(--surface);
-  }
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .placeholder {
-    display: grid;
-    place-items: center;
-    height: 100%;
-    font-size: 6rem;
-    color: var(--text-dim);
   }
   .info {
     min-width: 0;

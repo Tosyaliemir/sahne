@@ -78,5 +78,9 @@
   "settings.seconds": "{n} sn sonra",
   "settings.neverHide": "Hiç gizleme",
   "lyrics.expand": "Sözleri büyüt (L)",
-  "controls.showCover": "Kapağı göster (L)"
+  "controls.showCover": "Kapağı göster (L)",
+  "settings.coverEffect": "Kapak efekti",
+  "coverEffect.yok": "Yok",
+  "coverEffect.metal": "Metal plaka",
+  "coverEffect.elektrik": "Elektrik kenarlık"
 }

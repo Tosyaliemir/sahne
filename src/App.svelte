@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -22,6 +22,7 @@
   import TrackHero from "./lib/components/TrackHero.svelte";
   import ControlBar from "./lib/components/ControlBar.svelte";
   import SettingsPanel from "./lib/components/SettingsPanel.svelte";
+  import CoverArt from "./lib/components/CoverArt.svelte";
 
 
   /** WebGL missing or failing: fall back to the CSS backdrop. */
@@ -67,6 +68,12 @@
       if (!hoveringBar) ui.controlsVisible = false;
     }, secs * 1000);
   }
+
+  // The timer above may have started with the default before settings loaded.
+  $effect(() => {
+    void settings.current.controls_hide_secs;
+    untrack(bumpControls);
+  });
 
   // --- toast ----------------------------------------------------------------
   let toast = $state<string | null>(null);
@@ -170,11 +177,6 @@
 
   const data = $derived(lyrics.forTrack);
 
-  let coverFailed = $state(false);
-  $effect(() => {
-    void palette.artSrc;
-    coverFailed = false;
-  });
   const style = $derived(ui.effectiveStyle);
 </script>
 
@@ -201,11 +203,7 @@
     <div class="layout" class:focus={ui.lyricsFocus}>
       <aside class="side" aria-hidden={ui.lyricsFocus}>
         <div class="cover">
-          {#if palette.artSrc && !coverFailed}
-            <img src={palette.artSrc} alt="" onerror={() => (coverFailed = true)} />
-          {:else}
-            <div class="placeholder">♪</div>
-          {/if}
+          <CoverArt />
         </div>
         <h1>{player.track.title}</h1>
         <p class="artist">{player.track.artist}</p>
@@ -320,23 +318,6 @@
   .cover {
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 14px;
-    overflow: hidden;
-    background: var(--surface);
-    box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
-  }
-  .cover img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .placeholder {
-    display: grid;
-    place-items: center;
-    height: 100%;
-    font-size: 6rem;
-    color: var(--text-dim);
   }
   .side h1 {
     margin: 1.6rem 0 0;

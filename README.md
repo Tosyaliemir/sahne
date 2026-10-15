@@ -57,6 +57,13 @@ Söz satırına tıklamak şarkıyı o satıra sarar; alt çubuktaki ilerleme ç
 - **Akışkan** (varsayılan): Kapağın kendisi, iki katman hâlinde zıt yönlerde yavaşça döner ve sıvı gibi bükülür (WebGL shader), kapaktan çıkarılan 5 renkle harmanlanır. Düşük çözünürlükte çizilip büyütüldüğü için GPU'yu yormaz; WebGL yoksa kendiliğinden Bulanık'a döner.
 - **Bulanık:** Önceden bulanıklaştırılmış kapak ve üzerinde süzülen 5 renk alanı.
 
+**Kapak efektleri** (Ayarlar → Görünüm; renkler kapaktan alınır)
+
+- **Metal plaka:** Kapak, kendisini yansıtan fırçalanmış metal bir plakaya gömülür ve fareyle eğilir.
+- **Elektrik kenarlık:** Kapağın kenarında çatırdayan bir ışık dolaşır; fare yaklaşınca kıvılcımlanır, tıklayınca dalga yayılır.
+
+Bunlar WebGL2 ister; yoksa kapak efektsiz görünür. Sistemde "hareketi azalt" açıksa kapatılırlar.
+
 **Ekran koruyucu**
 
 Müzik çalarken bilgisayar belirli bir süre (varsayılan 3 dk) boşta kalırsa Sahne öne gelir ve tam ekran olur; fareyi oynatınca veya bir tuşa basınca pencereler eski hâline (gizli, küçültülmüş, mini mod…) döner. Ayarlardan kapatılabilir, süresi değiştirilebilir. İstersen ekran koruyucu açıkken ekranın kararmasını da engelleyebilir (bu, sistemin kilit ekranını da geciktirir; varsayılan kapalı). Boşta kalma süresi Wayland'de `ext-idle-notify` protokolüyle (destekleyen compositor'larda; KDE Plasma 6'da test edildi), yoksa GNOME (Mutter IdleMonitor) veya X11 (`org.freedesktop.ScreenSaver`) D-Bus arayüzleriyle ölçülür. Müzik çalarken oynatıcıların koyduğu "uyku engelleri" sayılmaz, yani müzik çalarken de çalışır.

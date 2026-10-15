@@ -82,6 +82,15 @@
       <span>{t("settings.edgeGlow")}</span>
       <input type="checkbox" checked={s.edge_glow} onchange={(e) => set("edge_glow", e.currentTarget.checked)} />
     </label>
+    <label class="row">
+      <span>{t("settings.coverEffect")}</span>
+      <select value={s.cover_effect}
+        onchange={(e) => set("cover_effect", e.currentTarget.value as Settings["cover_effect"])}>
+        {#each ["yok", "metal", "elektrik"] as const as c (c)}
+          <option value={c}>{t(`coverEffect.${c}` as const)}</option>
+        {/each}
+      </select>
+    </label>
     {#if s.backdrop_style === "bulanik"}
     <label class="row">
       <span>{t("settings.blur")} <em>{s.backdrop_blur}px</em></span>
