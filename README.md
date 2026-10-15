@@ -1,6 +1,6 @@
 # Sahne
 
-Spotify'da (veya MPRIS destekleyen başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir Linux masaüstü uygulaması. İsteğe bağlı olarak RGB klavye ve LED'leri de (OpenRGB) aynı renklere boyar.
+Spotify'da (veya MPRIS destekleyen başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir Linux masaüstü uygulaması.
 
 - Spotify Web API, hesap, anahtar veya Premium **gerekmez**: oynatıcı bilgisi D-Bus/MPRIS'ten okunur.
 - Sözler ücretsiz ve anahtarsız [LRCLIB](https://lrclib.net)'ten gelir, diskte önbelleğe alınır.
@@ -90,7 +90,7 @@ pnpm check                     # Svelte/TS tip kontrolü
 cd src-tauri && cargo test     # Rust birim testleri
 ```
 
-Ayrıntılı log için `RUST_LOG=sahne_lib=debug pnpm tauri dev`. Arayüzdeki JS hataları da `frontend` hedefiyle aynı loga düşer.
+Ayrıntılı log için `RUST_LOG=sahne_lib=debug pnpm tauri dev`. Arayüzdeki JS hataları da `frontend` hedefiyle aynı loga düşer; geliştirme modunda her 10 saniyede kare istatistiği (`frames: 60.0 fps, p95 …`) yazılır.
 
 ### Mimari
 
@@ -99,17 +99,16 @@ src-tauri/src/
   player/     MPRIS izleme, oynatıcı seçimi, konum takibi (Position=0 yedeği), kontroller
   lyrics/     LRCLIB istemcisi, LRC ayrıştırıcı, başlık temizleme, önbellek, offset'ler
   artwork/    kapak indirme/önbellek, OKLab k-means palet, bulanık arka plan
-  lighting/   OpenRGB (opsiyonel), renk kareleri ve geçişler
   settings.rs, windows.rs (mini mod), events.rs (frontend'e giden olay tipleri)
 src/
-  lib/stores/       player, lyrics, palette, settings, lighting, ui
-  lib/components/   LyricsView (klasik/sade), KineticView, Background, ControlBar, SettingsPanel…
+  lib/stores/       player, lyrics, palette, settings, ui
+  lib/components/   LyricsView (klasik/sade), FillWord, KineticView, Background, ControlBar, SettingsPanel…
   lib/timing.ts     aktif satır/kelime, kelime zamanlaması, enstrümantal aralar
   lib/clock.ts      backend senkronları arasında 60 fps konum interpolasyonu
   MiniApp.svelte    mini pencere
 ```
 
-Backend → frontend olayları: `track-changed`, `playback-state`, `position-sync`, `lyrics-loaded`, `palette-changed`, `player-disconnected`, `settings-changed`, `lighting-status`. Tipler `src-tauri/src/events.rs` ve `src/lib/types.ts` içinde; `ts_contract` testi ikisini senkron tutar.
+Backend → frontend olayları: `track-changed`, `playback-state`, `position-sync`, `lyrics-loaded`, `palette-changed`, `player-disconnected`, `settings-changed`. Tipler `src-tauri/src/events.rs` ve `src/lib/types.ts` içinde; `ts_contract` testi ikisini senkron tutar.
 
 ### Spotify olmadan test: mock player
 
@@ -162,23 +161,11 @@ playerctl -p spotify status         # Playing / Paused
 - [ ] `[` / `]` ile kaydırma yap, uygulamayı kapatıp aç → kaydırma korunur.
 - [ ] `M` ile mini moda geç ve geri dön; `S` ile stilleri dene; `F` ile tam ekran.
 
-## Ortam ışığı (OpenRGB)
-
-Varsayılan derlemede **yoktur**. Rust OpenRGB istemcisi (`openrgb2`) GPL-2.0 lisanslıdır; MIT lisanslı Sahne'ye varsayılan olarak bağlanmaz. Açmak için:
-
-```sh
-pnpm tauri build -- --features lighting     # veya: pnpm tauri dev -- --features lighting
-```
-
-> Bu şekilde derlenen ikili dosya GPL-2.0 koşullarıyla dağıtılmalıdır.
-
-Ardından OpenRGB'yi kur (`sudo pacman -S openrgb`, `sudo apt install openrgb` vb.), açıp **SDK Server**'ı başlat (varsayılan `127.0.0.1:6742`). Sahne'de Ayarlar → Ortam ışığı'ndan cihazları seç. Modlar: **Sabit** (paletin canlı rengi), **Gradyan** (soldan sağa 2–3 renk), **Nefes** (parlaklık yavaşça dalgalanır). Renkler 1 saniyede yumuşakça geçer; renk değişmiyorsa veri gönderilmez. OpenRGB kapalıysa Sahne sessizce bekler; çıkışta LED'leri önceki mod ve renklerine döndürür.
-
 ## Bilinen sınırlar
 
-- **NVIDIA + Wayland:** WebKitGTK'nın DMA-BUF çizicisi "Error 71" ile çöker. Sahne NVIDIA sürücüsünü görünce `WEBKIT_DISABLE_DMABUF_RENDERER=1` ayarlar. Bunu kendin ayarlarsan Sahne dokunmaz.
+- **NVIDIA + Wayland:** WebKitGTK'nın GPU çizicisi NVIDIA'nın "explicit sync" özelliği yüzünden "Error 71" ile çöker. Sahne NVIDIA sürücüsünü görünce `__NV_DISABLE_EXPLICIT_SYNC=1` ayarlar; GPU çizimi açık kalır, 60 fps korunur. (Sık önerilen `WEBKIT_DISABLE_DMABUF_RENDERER=1` de çökmeyi önler ama CPU'ya kopyalamaya geçtiği için tam ekranda kasar.) Değişkeni kendin ayarlarsan Sahne dokunmaz.
 - **Wayland'de mini pencere:** "Her zaman üstte" KDE'de çalışır. GNOME Wayland uygulamaların bunu yapmasına izin vermez. Wayland'de pencere konumu da uygulama tarafından kaydedilip geri yüklenemez (X11'de yapılır).
-- **LRCLIB:** Topluluk verisidir. Bazı şarkılarda zamanlama kayık olabilir (`[`/`]` bunun için var), Türkçe şarkılarda kapsama daha azdır. Çok sık istekte geçici olarak sınırlar (HTTP 429). Sahne bu durumda arka planda yeniden dener ve "aranıyor" ekranında kalır. 4 satırdan az içeren kayıtlar çöp kabul edilip atlanır.
+- **LRCLIB:** Topluluk verisidir ve ücretsiz bir hizmettir. Bazı şarkılarda zamanlama kayık olabilir (`[`/`]` bunun için var), Türkçe şarkılarda kapsama daha azdır. Saniyede yaklaşık bir isteğe izin verir (fazlasına HTTP 429) ve yoğun zamanlarda 503 döner; Sahne istekleri buna göre aralar, şarkı geçilince eski aramayı iptal eder ve "aranıyor" ekranında kalarak arka planda yeniden dener. Arama sırası: önce hızlı `get-cached` (~0,3 sn), sonra `search`, en son yavaş `get`. Bir kez bulunan sözler önbellekten anında gelir. 4 satırdan az içeren kayıtlar çöp kabul edilip atlanır.
 - Kelime vurgusu, Enhanced LRC yoksa tahminidir (yukarıya bak).
 
 ## Flatpak notları (ileride)
@@ -186,9 +173,8 @@ Ardından OpenRGB'yi kur (`sudo pacman -S openrgb`, `sudo apt install openrgb` v
 - D-Bus: `--talk-name=org.mpris.MediaPlayer2.*` (oynatıcıları okumak ve kontrol etmek için).
 - Ağ: `--share=network` (LRCLIB ve kapak indirme).
 - Önbellek/ayarlar Flatpak'ın XDG dizinlerine düşer; `directories` crate'i bunu kendiliğinden halleder.
-- OpenRGB için: `--share=network` yeterli (yerel TCP 6742).
-- NVIDIA'da `WEBKIT_DISABLE_DMABUF_RENDERER=1` manifest'te ortam değişkeni olarak da verilebilir.
+- NVIDIA'da `__NV_DISABLE_EXPLICIT_SYNC=1` manifest'te ortam değişkeni olarak da verilebilir.
 
 ## Lisans
 
-MIT (bkz. `LICENSE`). Gömülü Manrope yazı tipi SIL Open Font License 1.1 ile dağıtılır (`src/assets/fonts/OFL.txt`). `lighting` özelliğiyle derlenen sürümler GPL-2.0'dır (yukarıya bak).
+MIT (bkz. `LICENSE`). Gömülü Manrope yazı tipi SIL Open Font License 1.1 ile dağıtılır (`src/assets/fonts/OFL.txt`).

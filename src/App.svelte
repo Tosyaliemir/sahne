@@ -7,8 +7,8 @@
   import { palette } from "./lib/stores/palette.svelte";
   import { ui } from "./lib/stores/ui.svelte";
   import { settings } from "./lib/stores/settings.svelte";
-  import { lighting } from "./lib/stores/lighting.svelte";
   import { t } from "./lib/i18n/index.svelte";
+  import { startFrameStats } from "./lib/perf";
   import Background from "./lib/components/Background.svelte";
   import StatusScreen from "./lib/components/StatusScreen.svelte";
   import LyricsView from "./lib/components/LyricsView.svelte";
@@ -26,12 +26,12 @@
   onMount(() => {
     const stops: (() => void)[] = [];
     settings.start().then((s) => stops.push(s));
-    lighting.start().then((s) => stops.push(s));
     player.start().then((s) => stops.push(s));
     lyrics.start().then((s) => stops.push(s));
     palette.start().then((s) => stops.push(s));
     appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
     bumpControls();
+    if (import.meta.env.DEV) stops.push(startFrameStats("frames"));
     return () => {
       stops.forEach((s) => s());
       clearTimeout(hideTimer);

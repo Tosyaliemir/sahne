@@ -10,7 +10,8 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 
 const BASE: &str = "https://lrclib.net/api";
-const MIN_SPACING: Duration = Duration::from_millis(1000);
+/// LRCLIB answers 429 to more than about one request per second.
+const MIN_SPACING: Duration = Duration::from_millis(1100);
 const MAX_RETRIES: u32 = 3;
 const MAX_RETRY_WAIT: Duration = Duration::from_secs(10);
 /// LRCLIB's own matching tolerance for search results.
@@ -109,6 +110,30 @@ impl Client {
         album: &str,
         duration_s: u64,
     ) -> Result<Option<Record>, FetchError> {
+        self.lookup("get", artist, title, album, duration_s).await
+    }
+
+    /// Like [`Client::get`] but only consults LRCLIB's own database: ~0.3 s
+    /// instead of several seconds when `get` falls back to external sources.
+    pub async fn get_cached(
+        &self,
+        artist: &str,
+        title: &str,
+        album: &str,
+        duration_s: u64,
+    ) -> Result<Option<Record>, FetchError> {
+        self.lookup("get-cached", artist, title, album, duration_s)
+            .await
+    }
+
+    async fn lookup(
+        &self,
+        endpoint: &str,
+        artist: &str,
+        title: &str,
+        album: &str,
+        duration_s: u64,
+    ) -> Result<Option<Record>, FetchError> {
         let duration = duration_s.to_string();
         let mut query = vec![
             ("artist_name", artist),
@@ -118,7 +143,7 @@ impl Client {
         if !album.is_empty() {
             query.push(("album_name", album));
         }
-        match self.request("get", &query).await? {
+        match self.request(endpoint, &query).await? {
             Some(resp) => resp.json().await.map(Some).map_err(FetchError::Decode),
             None => Ok(None),
         }
@@ -141,13 +166,19 @@ impl Client {
         let url = format!("{BASE}/{endpoint}");
         for attempt in 0..=MAX_RETRIES {
             self.wait_turn().await;
-            let resp = self.http.get(&url).query(query).send().await.map_err(|e| {
-                if e.is_connect() || e.is_timeout() {
-                    FetchError::Offline(e)
-                } else {
-                    FetchError::Decode(e)
+            let resp = match self.http.get(&url).query(query).send().await {
+                Ok(resp) => resp,
+                // A single failed connect is often a blip; only a repeat means offline.
+                Err(e) if e.is_connect() && attempt == 0 => {
+                    tracing::debug!("LRCLIB connect failed ({e}), retrying once");
+                    tokio::time::sleep(Duration::from_millis(1500)).await;
+                    continue;
                 }
-            })?;
+                Err(e) if e.is_connect() => return Err(FetchError::Offline(e)),
+                // Reachable but slow (LRCLIB's `get` can take seconds): retry, don't claim offline.
+                Err(e) if e.is_timeout() => return Err(FetchError::Busy),
+                Err(e) => return Err(FetchError::Decode(e)),
+            };
             match resp.status() {
                 s if s.is_success() => return Ok(Some(resp)),
                 StatusCode::NOT_FOUND => return Ok(None),
@@ -155,7 +186,7 @@ impl Client {
                     && attempt < MAX_RETRIES =>
                 {
                     // Retry-After is often 1 s, which just earns another 429; back off harder.
-                    let backoff = Duration::from_secs(2 << attempt);
+                    let backoff = Duration::from_secs(1 << attempt);
                     let wait = retry_after(&resp).map_or(backoff, |r| r.max(backoff));
                     tracing::debug!("LRCLIB {s}, retrying in {wait:?}");
                     tokio::time::sleep(wait.min(MAX_RETRY_WAIT)).await;

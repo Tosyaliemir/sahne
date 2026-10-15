@@ -10,19 +10,23 @@ import type {
   TrackInfo,
 } from "../types";
 
-/** Reactive view of the backend player, plus a per-frame interpolated position. */
+/** Reactive view of the backend player plus an interpolating clock. */
 class PlayerStore {
   connected = $state(false);
   playerName = $state<string | null>(null);
   track = $state.raw<TrackInfo | null>(null);
   status = $state<PlaybackStatus>("stopped");
   source = $state<PositionSource>("player");
-  /** Interpolated position, refreshed every animation frame. */
+  /**
+   * Interpolated position for text displays, refreshed a few times a second.
+   * Animations read `positionNow()` in their own frame loops instead, so
+   * nothing reactive changes on every frame.
+   */
   positionMs = $state(0);
 
   readonly clock = new PlaybackClock();
   private sawEvent = false;
-  private frame = 0;
+  private ticker: ReturnType<typeof setInterval> | undefined;
 
   async start(): Promise<() => void> {
     const unlisten: UnlistenFn[] = await Promise.all([
@@ -40,18 +44,24 @@ class PlayerStore {
       console.error("get_state failed", err);
     }
 
-    const loop = (now: number) => {
-      const length = this.track?.length_ms ?? 0;
-      const pos = this.clock.position(now);
-      this.positionMs = length > 0 ? Math.min(pos, length) : pos;
-      this.frame = requestAnimationFrame(loop);
+    const refresh = () => {
+      const pos = Math.floor(this.positionNow(performance.now()) / 250) * 250;
+      if (pos !== this.positionMs) this.positionMs = pos;
     };
-    this.frame = requestAnimationFrame(loop);
+    refresh();
+    this.ticker = setInterval(refresh, 250);
 
     return () => {
-      cancelAnimationFrame(this.frame);
+      clearInterval(this.ticker);
       unlisten.forEach((u) => u());
     };
+  }
+
+  /** Interpolated position at `now` (performance.now() scale), clamped to the track. */
+  positionNow(now: number): number {
+    const length = this.track?.length_ms ?? 0;
+    const pos = this.clock.position(now);
+    return length > 0 ? Math.min(pos, length) : pos;
   }
 
   private applySnapshot(snap: PlayerSnapshot): void {

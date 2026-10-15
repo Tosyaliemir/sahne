@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
-use tokio::sync::watch;
 
 use crate::paths::{self, Paths};
 
@@ -31,36 +30,6 @@ pub enum Language {
     En,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LightingMode {
-    /// Every LED shows the palette's vibrant color.
-    Sabit,
-    /// 2–3 palette colors spread left to right.
-    Gradyan,
-    /// Brightness slowly pulses.
-    Nefes,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LightingSettings {
-    pub enabled: bool,
-    pub mode: LightingMode,
-    /// OpenRGB device names to drive; empty means none selected yet.
-    pub devices: Vec<String>,
-}
-
-impl Default for LightingSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            mode: LightingMode::Sabit,
-            devices: Vec::new(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -70,7 +39,8 @@ pub struct Settings {
     pub font: FontChoice,
     /// Multiplier for lyric text size.
     pub font_scale: f64,
-    /// Extra CSS blur on the (already pre-blurred) backdrop, in px.
+    /// Extra CSS blur on the (already pre-blurred) backdrop, in px. Costly
+    /// on animated layers, so off by default.
     pub backdrop_blur: u32,
     /// Opacity of the darkening layer, 0..1.
     pub backdrop_dim: f64,
@@ -79,7 +49,6 @@ pub struct Settings {
     /// Last mini-window position (physical pixels), if the user moved it.
     pub mini_position: Option<(i32, i32)>,
     pub start_fullscreen: bool,
-    pub lighting: LightingSettings,
     pub language: Language,
 }
 
@@ -90,12 +59,11 @@ impl Default for Settings {
             lyrics_style: LyricsStyle::Klasik,
             font: FontChoice::Embedded,
             font_scale: 1.0,
-            backdrop_blur: 40,
+            backdrop_blur: 0,
             backdrop_dim: 0.35,
             global_offset_ms: 0,
             mini_position: None,
             start_fullscreen: false,
-            lighting: LightingSettings::default(),
             language: Language::Tr,
         }
     }
@@ -124,8 +92,6 @@ impl Settings {
 pub struct SettingsStore {
     path: PathBuf,
     current: Mutex<Settings>,
-    /// Lets background services (lighting) react to changes.
-    tx: watch::Sender<Settings>,
 }
 
 impl SettingsStore {
@@ -141,7 +107,6 @@ impl SettingsStore {
         };
         Self {
             path,
-            tx: watch::Sender::new(current.clone()),
             current: Mutex::new(current),
         }
     }
@@ -154,15 +119,10 @@ impl SettingsStore {
     pub fn set(&self, settings: Settings) -> Settings {
         let settings = settings.sanitized();
         *self.lock() = settings.clone();
-        self.tx.send_replace(settings.clone());
         if let Err(e) = paths::write_json(&self.path, &settings) {
             tracing::warn!("could not save settings: {e}");
         }
         settings
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<Settings> {
-        self.tx.subscribe()
     }
 
     pub fn update(&self, f: impl FnOnce(&mut Settings)) -> Settings {
@@ -188,7 +148,6 @@ mod tests {
         assert_eq!(s.lyrics_style, LyricsStyle::Kinetik);
         assert_eq!(s.language, Language::En);
         assert_eq!(s.font_scale, 1.0);
-        assert_eq!(s.lighting, LightingSettings::default());
     }
 
     #[test]

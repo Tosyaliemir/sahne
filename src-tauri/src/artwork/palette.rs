@@ -4,9 +4,11 @@
 use image::{imageops::FilterType, DynamicImage};
 use serde::Serialize;
 
-const K: usize = 6;
+const K: usize = 8;
 const ITERATIONS: usize = 12;
-const SAMPLE_SIZE: u32 = 64;
+const SAMPLE_SIZE: u32 = 96;
+/// Number of backdrop colors handed to the UI.
+pub const AMBIENT_COLORS: usize = 5;
 /// WCAG AA for normal text is 4.5:1; we aim higher so dimmed text stays readable.
 const TARGET_CONTRAST: f64 = 7.0;
 
@@ -18,6 +20,9 @@ pub struct Palette {
     pub dark_bg: String,
     pub light_text: String,
     pub accent: String,
+    /// Distinct, backdrop-friendly colors (always `AMBIENT_COLORS` of them),
+    /// most characteristic first.
+    pub ambient: Vec<String>,
 }
 
 impl Default for Palette {
@@ -203,7 +208,69 @@ fn from_clusters(clusters: &[(Lab, f64)]) -> Palette {
         dark_bg: hex(bg),
         light_text: hex(text),
         accent: hex(accent),
+        ambient: ambient(clusters, dominant).into_iter().map(hex).collect(),
     }
+}
+
+/// Picks up to `AMBIENT_COLORS` clearly different colors from the artwork and,
+/// if it has fewer, fills in with hue (or, for grey art, lightness) variations,
+/// so the backdrop always has several colors to move around.
+fn ambient(clusters: &[(Lab, f64)], dominant: Lab) -> Vec<Lab> {
+    // Backdrop colors must glow without washing out the lyrics.
+    let normalize = |c: Lab| {
+        let chroma = (c.chroma() * 1.15).min(0.2);
+        Lab::from_lch(c.l.clamp(0.42, 0.72), chroma, c.hue())
+    };
+    let mut candidates: Vec<&(Lab, f64)> = clusters
+        .iter()
+        .filter(|(c, share)| *share >= 0.01 && c.chroma() >= 0.03)
+        .collect();
+    candidates.sort_by(|x, y| (y.0.chroma() * y.1.sqrt()).total_cmp(&(x.0.chroma() * x.1.sqrt())));
+
+    let mut picked: Vec<Lab> = Vec::new();
+    for (c, _) in candidates {
+        let n = normalize(*c);
+        if picked.iter().all(|p| p.dist2(&n) > 0.07f64.powi(2)) {
+            picked.push(n);
+        }
+        if picked.len() == AMBIENT_COLORS {
+            return picked;
+        }
+    }
+
+    let base = picked
+        .first()
+        .copied()
+        .unwrap_or_else(|| normalize(dominant));
+    if base.chroma() < 0.03 {
+        // Grey artwork: vary lightness only, keeping it grey.
+        for l in [0.36, 0.5, 0.62, 0.44, 0.7] {
+            if picked.len() == AMBIENT_COLORS {
+                break;
+            }
+            picked.push(Lab { l, a: 0.0, b: 0.0 });
+        }
+        return picked;
+    }
+    // Rotate around the main color; each step lands on a new hue.
+    let steps = [28.0f64, -28.0, 56.0, -56.0, 84.0];
+    let mut i = 0;
+    while picked.len() < AMBIENT_COLORS && i < steps.len() {
+        let l = (base.l + if i % 2 == 0 { 0.06 } else { -0.06 }).clamp(0.42, 0.72);
+        let candidate = Lab::from_lch(
+            l,
+            base.chroma().max(0.06),
+            base.hue() + steps[i].to_radians(),
+        );
+        if picked.iter().all(|p| p.dist2(&candidate) > 0.03f64.powi(2)) {
+            picked.push(candidate);
+        }
+        i += 1;
+    }
+    while picked.len() < AMBIENT_COLORS {
+        picked.push(base);
+    }
+    picked
 }
 
 fn with_lightness(c: Lab, l: f64) -> Lab {
@@ -394,6 +461,46 @@ mod tests {
             );
         }
         assert_readable(&p);
+    }
+
+    #[test]
+    fn ambient_always_has_distinct_colors() {
+        let two = extract(&image_from(|x, _| {
+            if x < 70 {
+                [30, 60, 200]
+            } else {
+                [240, 210, 40]
+            }
+        }));
+        let solid = extract(&image_from(|_, _| [200, 30, 40]));
+        let bw = extract(&image_from(|x, y| {
+            if (x / 10 + y / 10) % 2 == 0 {
+                [0, 0, 0]
+            } else {
+                [255, 255, 255]
+            }
+        }));
+        for p in [&two, &solid, &bw] {
+            assert_eq!(p.ambient.len(), AMBIENT_COLORS, "{p:?}");
+            let labs: Vec<Lab> = p.ambient.iter().map(|h| parse_hex(h)).collect();
+            for (i, a) in labs.iter().enumerate() {
+                for b in &labs[i + 1..] {
+                    assert!(a.dist2(b) > 0.02f64.powi(2), "too similar in {p:?}");
+                }
+            }
+        }
+        // Both colors of the two-color image show up in the backdrop.
+        let hues: Vec<f64> = two.ambient.iter().map(|h| hue_deg(h)).collect();
+        assert!(
+            hues.iter().any(|h| (h - hue_deg("#1e3cc8")).abs() < 15.0),
+            "{hues:?}"
+        );
+        assert!(
+            hues.iter().any(|h| (h - hue_deg("#f0d228")).abs() < 15.0),
+            "{hues:?}"
+        );
+        // Grey art stays grey.
+        assert!(bw.ambient.iter().all(|h| parse_hex(h).chroma() < 0.01));
     }
 
     #[test]

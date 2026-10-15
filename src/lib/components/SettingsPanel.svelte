@@ -5,10 +5,9 @@
   import { settings } from "../stores/settings.svelte";
   import { player } from "../stores/player.svelte";
   import { lyrics } from "../stores/lyrics.svelte";
-  import { lighting } from "../stores/lighting.svelte";
   import { STYLES, ui } from "../stores/ui.svelte";
   import { t } from "../i18n/index.svelte";
-  import type { LightingMode, Settings } from "../types";
+  import type { Settings } from "../types";
 
   let { onClose }: { onClose: () => void } = $props();
 
@@ -19,23 +18,12 @@
     invoke<string[]>("list_players")
       .then((p) => (players = p))
       .catch((err) => console.warn("list_players failed", err));
-    lighting.refresh();
   });
 
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     settings.update({ [key]: value } as Partial<Settings>);
   }
 
-  function setLighting(patch: Partial<Settings["lighting"]>) {
-    set("lighting", { ...s.lighting, ...patch });
-  }
-
-  function toggleDevice(name: string, on: boolean) {
-    const devices = on ? [...new Set([...s.lighting.devices, name])] : s.lighting.devices.filter((d) => d !== name);
-    setLighting({ devices });
-  }
-
-  const MODES: LightingMode[] = ["sabit", "gradyan", "nefes"];
   const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 </script>
 
@@ -86,7 +74,7 @@
     </label>
     <label class="row">
       <span>{t("settings.blur")} <em>{s.backdrop_blur}px</em></span>
-      <input type="range" min="0" max="100" step="5" value={s.backdrop_blur}
+      <input type="range" min="0" max="60" step="5" value={s.backdrop_blur}
         oninput={(e) => set("backdrop_blur", +e.currentTarget.value)} />
     </label>
     <label class="row">
@@ -148,43 +136,6 @@
     {/if}
   </section>
 
-  <section>
-    <h3>{t("settings.lighting")}</h3>
-    <label class="row check">
-      <span>{t("settings.lightingEnabled")}</span>
-      <input type="checkbox" checked={s.lighting.enabled}
-        onchange={(e) => setLighting({ enabled: e.currentTarget.checked })} />
-    </label>
-    <p class="hint" class:warn={lighting.status.state !== "connected"}>
-      {#if !lighting.status.available}
-        {t("lighting.unavailable")}
-      {:else if lighting.status.state === "connected"}
-        {t("lighting.connected", { count: String(lighting.status.devices.length) })}
-      {:else if lighting.status.state === "disabled"}
-        {t("lighting.disabled")}
-      {:else}
-        {t("lighting.offline")}
-      {/if}
-    </p>
-    {#if s.lighting.enabled && lighting.status.available}
-      <div class="row">
-        <span>{t("settings.lightingMode")}</span>
-        <div class="segmented" role="radiogroup">
-          {#each MODES as mode (mode)}
-            <button role="radio" aria-checked={s.lighting.mode === mode} class:on={s.lighting.mode === mode}
-              onclick={() => setLighting({ mode })}>{t(`lighting.mode.${mode}` as const)}</button>
-          {/each}
-        </div>
-      </div>
-      {#each lighting.status.devices as device (device.name)}
-        <label class="row check device">
-          <span>{device.name} <em>{device.leds} LED</em></span>
-          <input type="checkbox" checked={s.lighting.devices.includes(device.name)}
-            onchange={(e) => toggleDevice(device.name, e.currentTarget.checked)} />
-        </label>
-      {/each}
-    {/if}
-  </section>
 </aside>
 
 <style>
@@ -306,8 +257,5 @@
   }
   .hint.warn {
     color: color-mix(in srgb, var(--accent) 80%, var(--text));
-  }
-  .device span {
-    font-size: 0.9rem;
   }
 </style>

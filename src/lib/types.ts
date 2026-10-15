@@ -73,6 +73,8 @@ export interface Palette {
   dark_bg: string;
   light_text: string;
   accent: string;
+  /** Five distinct backdrop colors, most characteristic first. */
+  ambient: string[];
 }
 
 export interface PaletteChanged {
@@ -83,7 +85,6 @@ export interface PaletteChanged {
 }
 
 export type LyricsStyleSetting = "klasik" | "kinetik" | "sade";
-export type LightingMode = "sabit" | "gradyan" | "nefes";
 
 export interface Settings {
   preferred_player: string | null;
@@ -95,6 +96,5 @@ export interface Settings {
   global_offset_ms: number;
   mini_position: [number, number] | null;
   start_fullscreen: boolean;
-  lighting: { enabled: boolean; mode: LightingMode; devices: string[] };
   language: "tr" | "en";
 }

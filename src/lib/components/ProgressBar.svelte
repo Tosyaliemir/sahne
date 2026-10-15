@@ -1,10 +1,29 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { player } from "../stores/player.svelte";
   import { formatTime } from "../format";
   import { t } from "../i18n/index.svelte";
 
+  /** Pauses the per-frame fill update while the bar is hidden. */
+  let { active = true }: { active?: boolean } = $props();
+
   const length = $derived(player.track?.length_ms ?? 0);
-  const fraction = $derived(length > 0 ? Math.min(1, player.positionMs / length) : 0);
+  let fillEl: HTMLElement | undefined = $state();
+
+  onMount(() => {
+    let last = -1;
+    let raf = requestAnimationFrame(function loop(now) {
+      if (active && fillEl && length > 0) {
+        const f = Math.round(Math.min(1, player.positionNow(now) / length) * 2000) / 2000;
+        if (f !== last) {
+          fillEl.style.transform = `scaleX(${f})`;
+          last = f;
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    });
+    return () => cancelAnimationFrame(raf);
+  });
 
   function seekFromPointer(e: MouseEvent) {
     if (length <= 0) return;
@@ -18,7 +37,7 @@
     if (step === 0 || length <= 0) return;
     e.preventDefault();
     e.stopPropagation();
-    player.seek(Math.min(length, Math.max(0, player.positionMs + step)));
+    player.seek(Math.min(length, Math.max(0, player.positionNow(performance.now()) + step)));
   }
 </script>
 
@@ -38,7 +57,7 @@
   >
     <div class="rail">
       <!-- scaleX keeps the per-frame update off the layout path -->
-      <div class="fill" style:transform="scaleX({fraction})"></div>
+      <div class="fill" bind:this={fillEl}></div>
     </div>
   </div>
   <span class="time">{formatTime(length)}</span>

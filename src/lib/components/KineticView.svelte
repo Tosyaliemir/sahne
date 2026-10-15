@@ -6,6 +6,7 @@
   import { lyrics } from "../stores/lyrics.svelte";
   import { activeLineIndex, interludeAt, lyricTime, wordProgress, wordTimings } from "../timing";
   import Interlude from "./Interlude.svelte";
+  import FillWord from "./FillWord.svelte";
 
   let { data }: { data: LyricsLoaded } = $props();
 
@@ -35,7 +36,13 @@
   let current = $state(-1);
   let inBreak = $state(false);
   let lineIdx = $state(-1);
-  let wordEl: HTMLElement | undefined = $state();
+  let wordEl: HTMLElement | undefined;
+  const registerWord = (el: HTMLElement) => {
+    wordEl = el;
+    return () => {
+      if (wordEl === el) wordEl = undefined;
+    };
+  };
   let dotsEl: HTMLElement | undefined = $state();
   let lastP = -1;
 
@@ -102,15 +109,10 @@
     <div class="center" bind:this={dotsEl}><Interlude /></div>
   {:else if word}
     {#key current}
-      <span
-        class="word"
-        style:font-size={fontSize}
-        bind:this={wordEl}
-        in:enter={{ index: current }}
-        out:leave
+      <!-- `.active` turns on FillWord's GPU-composited fill. -->
+      <span class="word active" style:font-size={fontSize} in:enter={{ index: current }} out:leave
+        ><FillWord text={word.text} attach={registerWord} /></span
       >
-        {word.text}
-      </span>
     {/key}
   {/if}
   {#if lineIdx >= 0 && !inBreak}
@@ -134,20 +136,16 @@
     transform: translate(-50%, -50%);
   }
   .word {
-    --p: 0;
     white-space: nowrap;
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1;
-    background-image: linear-gradient(
-      90deg,
-      var(--fill) calc(var(--p) * 125% - 25%),
-      var(--unfilled) calc(var(--p) * 125%)
-    );
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    filter: drop-shadow(0 0 0.12em color-mix(in srgb, var(--accent) 55%, transparent));
+    color: var(--unfilled);
+    will-change: transform, opacity;
+  }
+  /* Static glow on the bright copy: rasterized once, not every frame. */
+  .word :global(.fill) {
+    text-shadow: 0 0 0.12em color-mix(in srgb, var(--accent) 55%, transparent);
   }
   .context {
     position: absolute;

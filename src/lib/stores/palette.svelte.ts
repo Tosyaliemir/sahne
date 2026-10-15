@@ -10,6 +10,7 @@ const NEUTRAL: Palette = {
   dark_bg: "#121216",
   light_text: "#f4f2ee",
   accent: "#b8b8c4",
+  ambient: ["#5c5c66", "#6f6f7a", "#4d4d57", "#7d7d88", "#585862"],
 };
 
 const ROLES = ["dominant", "vibrant", "muted", "dark_bg", "light_text", "accent"] as const;
@@ -119,6 +120,7 @@ class PaletteStore {
         const p = this.palette;
         const root = document.documentElement.style;
         for (const role of ROLES) root.setProperty(`--c-${role.replace("_", "-")}`, p[role]);
+        p.ambient.forEach((c, i) => root.setProperty(`--c-amb-${i}`, c));
       });
     });
     return () => {

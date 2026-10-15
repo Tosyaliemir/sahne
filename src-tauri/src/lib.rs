@@ -1,7 +1,6 @@
 mod artwork;
 mod error;
 mod events;
-mod lighting;
 mod lyrics;
 mod paths;
 mod player;
@@ -10,12 +9,11 @@ mod windows;
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use artwork::ArtworkService;
 use error::AppResult;
 use events::{LyricsLoaded, PaletteChanged, PlayerSnapshot};
-use lighting::{LightingService, LightingStatus};
 use lyrics::LyricsService;
 use paths::Paths;
 use player::PlayerState;
@@ -95,11 +93,6 @@ fn save_settings(
 }
 
 #[tauri::command]
-fn lighting_status(lighting: State<'_, Arc<LightingService>>) -> LightingStatus {
-    lighting.status()
-}
-
-#[tauri::command]
 async fn list_players() -> AppResult<Vec<String>> {
     player::list_players().await
 }
@@ -134,12 +127,13 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
-/// WebKitGTK's DMA-BUF renderer dies with "Error 71 (Protocol error)" on
-/// Wayland with the NVIDIA driver. Fall back to the older path there unless
-/// the user has made their own choice.
+/// With the NVIDIA driver on Wayland, WebKitGTK's GPU (DMA-BUF) renderer dies
+/// with "Error 71 (Protocol error)" because of explicit sync. Turning explicit
+/// sync off keeps GPU rendering; disabling the DMA-BUF renderer instead (the
+/// common advice) falls back to slow CPU copies and stutters at full screen.
 #[cfg(target_os = "linux")]
 fn apply_webkit_workarounds() {
-    const VAR: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
+    const VAR: &str = "__NV_DISABLE_EXPLICIT_SYNC";
     if std::env::var_os(VAR).is_none()
         && std::path::Path::new("/proc/driver/nvidia/version").exists()
     {
@@ -183,12 +177,6 @@ pub fn run() {
                 }
             }
             let handle = app.handle().clone();
-            let lighting = LightingService::spawn(
-                handle.clone(),
-                settings.subscribe(),
-                artwork.subscribe_palette(),
-            );
-            app.manage(lighting);
             lyrics.spawn(handle.clone(), player.subscribe_tracks());
             artwork.spawn(handle.clone(), player.subscribe_tracks());
             player::spawn(handle, player);
@@ -208,23 +196,11 @@ pub fn run() {
             save_settings,
             list_players,
             set_mini_mode,
-            lighting_status,
             frontend_log
         ])
-        .build(tauri::generate_context!());
-    let app = match result {
-        Ok(app) => app,
-        Err(e) => {
-            tracing::error!("failed to start Sahne: {e}");
-            std::process::exit(1);
-        }
-    };
-    app.run(|handle, event| {
-        if let RunEvent::Exit = event {
-            // Hand the LEDs back before the process ends.
-            if let Some(lighting) = handle.try_state::<Arc<LightingService>>() {
-                lighting.shutdown();
-            }
-        }
-    });
+        .run(tauri::generate_context!());
+    if let Err(e) = result {
+        tracing::error!("failed to start Sahne: {e}");
+        std::process::exit(1);
+    }
 }

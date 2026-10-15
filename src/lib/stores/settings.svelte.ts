@@ -11,12 +11,11 @@ export const DEFAULT_SETTINGS: Settings = {
   lyrics_style: "klasik",
   font: "embedded",
   font_scale: 1,
-  backdrop_blur: 40,
+  backdrop_blur: 0,
   backdrop_dim: 0.35,
   global_offset_ms: 0,
   mini_position: null,
   start_fullscreen: false,
-  lighting: { enabled: false, mode: "sabit", devices: [] },
   language: "tr",
 };
 

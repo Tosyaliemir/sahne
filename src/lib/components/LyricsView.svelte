@@ -12,6 +12,7 @@
     wordTimings,
   } from "../timing";
   import Interlude from "./Interlude.svelte";
+  import FillWord from "./FillWord.svelte";
 
   let { data, style }: { data: LyricsLoaded; style: "klasik" | "sade" } = $props();
 
@@ -49,29 +50,36 @@
       };
     };
   }
-  let transforms: string[] = $state([]);
 
+  /** Lines further than this from the active one are not laid out at all. */
+  const WINDOW = 3;
   const SCALE_NEAR = 0.55;
   const SCALE_FAR = 0.4;
   const GAP_PX = 28;
+
+  let transforms: string[] = $state([]);
 
   function isBreak(i: number): boolean {
     const l = lines[i];
     return !!l && l.text.trim() === "" && l.end_ms - l.start_ms >= INTERLUDE_MIN_MS;
   }
 
-  /** Places the active line at the center and its neighbours above/below. */
+  /**
+   * Places the active line at the center and its neighbours above/below.
+   * Only lines inside the window are measured and moved, so a line change
+   * animates a handful of elements rather than the whole song.
+   */
   function layout() {
     const h = (i: number) => lineEls[i]?.offsetHeight ?? 0;
-    const out: string[] = new Array(lines.length);
+    const out = transforms.slice(0, lines.length);
     const a = Math.max(0, active);
     const place = (i: number, center: number, scale: number) => {
-      out[i] = `translateY(${center - h(i) / 2}px) scale(${scale})`;
+      out[i] = `translate3d(0, ${center - h(i) / 2}px, 0) scale(${scale})`;
     };
     place(a, 0, 1);
     let up = -h(a) / 2;
     let down = h(a) / 2;
-    for (let d = 1; d <= 2; d++) {
+    for (let d = 1; d <= WINDOW; d++) {
       const s = d === 1 ? SCALE_NEAR : SCALE_FAR;
       const p = a - d;
       const n = a + d;
@@ -86,10 +94,6 @@
         down = c + (h(n) * s) / 2;
       }
     }
-    // Far lines wait just outside the visible stack, ready to slide in.
-    for (let i = 0; i < lines.length; i++) {
-      if (!out[i]) out[i] = `translateY(${i < a ? up - 200 : down + 200}px) scale(${SCALE_FAR})`;
-    }
     transforms = out;
   }
 
@@ -101,7 +105,7 @@
 
   // Per-frame work: only the active line's word fills and the interlude dots.
   let lastProgress: number[] = [];
-  let lastActiveWord = -1;
+  let lastSinging = -1;
 
   function frame(now: number) {
     const t = lyricTime(player.clock.position(now), lyrics.totalOffsetMs);
@@ -110,7 +114,7 @@
       resetLine(active);
       active = idx;
       lastProgress = [];
-      lastActiveWord = -1;
+      lastSinging = -1;
     }
     if (idx < 0) return;
 
@@ -122,17 +126,19 @@
         if (!el) continue;
         const p = Math.round(wordProgress(ws[j], t) * 1000) / 1000;
         if (p !== lastProgress[j]) {
+          // Drives two transforms only (see FillWord): no repaint per frame.
           el.style.setProperty("--p", String(p));
           if (p > 0 && !(lastProgress[j] > 0)) el.classList.add("on");
+          if (p >= 1 && !(lastProgress[j] >= 1)) el.classList.add("done");
           lastProgress[j] = p;
         }
       }
       const aw = activeWordIndex(ws, t);
       const singing = aw >= 0 && t < ws[aw].end_ms ? aw : -1;
-      if (singing !== lastActiveWord) {
-        if (lastActiveWord >= 0) els[lastActiveWord]?.classList.remove("glow");
+      if (singing !== lastSinging) {
+        if (lastSinging >= 0) els[lastSinging]?.classList.remove("glow");
         if (singing >= 0) els[singing]?.classList.add("glow");
-        lastActiveWord = singing;
+        lastSinging = singing;
       }
     }
 
@@ -147,7 +153,7 @@
   function resetLine(i: number) {
     for (const el of wordEls[i] ?? []) {
       el?.style.removeProperty("--p");
-      el?.classList.remove("on", "glow");
+      el?.classList.remove("on", "done", "glow");
     }
   }
 
@@ -178,7 +184,7 @@
       class:active={d === 0}
       class:near={Math.abs(d) === 1}
       class:past={d < 0}
-      class:hidden={Math.abs(d) > 1}
+      class:far={Math.abs(d) > WINDOW}
       {@attach register(lineEls, i)}
       style:transform={transforms[i]}
       role="button"
@@ -191,7 +197,7 @@
         </div>
       {:else}
         {#each words[i] as w, j (j)}
-          <span class="w" {@attach registerWord(i, j)}>{w.text}</span>{" "}
+          <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
         {/each}
       {/if}
     </div>
@@ -223,14 +229,21 @@
     cursor: pointer;
     opacity: 0;
   }
+  .line.far {
+    display: none;
+  }
   .klasik .line {
     transition:
       transform 480ms cubic-bezier(0.34, 1.32, 0.64, 1),
-      opacity 380ms ease,
-      color 380ms ease;
+      opacity 380ms ease;
   }
   .sade .line {
     transition: opacity 200ms linear;
+  }
+  /* Only the lines that move or fill get their own GPU layer. */
+  .line.active,
+  .line.near {
+    will-change: transform, opacity;
   }
   .line.active {
     opacity: 1;
@@ -239,35 +252,17 @@
     opacity: 0.5;
   }
   .line.past {
-    color: var(--text);
-  }
-  .line.hidden {
-    pointer-events: none;
+    color: var(--fill);
   }
   .line:not(.active):hover {
     opacity: 0.75;
   }
 
-  /* Word fill: a soft-edged gradient swept left to right by --p (0..1). */
-  .w {
-    display: inline-block;
-    --p: 0;
-  }
-  .active .w {
-    background-image: linear-gradient(
-      90deg,
-      var(--fill) calc(var(--p) * 125% - 25%),
-      var(--unfilled) calc(var(--p) * 125%)
-    );
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-  }
-  .klasik .active .w:global(.on) {
+  .klasik .active :global(.fw.on) {
     animation: pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .klasik .active .w:global(.glow) {
-    filter: drop-shadow(0 0 0.18em color-mix(in srgb, var(--accent) 75%, transparent));
+  .klasik .active :global(.fw.glow .fill) {
+    text-shadow: 0 0 0.22em color-mix(in srgb, var(--accent) 80%, transparent);
   }
   @keyframes pop {
     0% { transform: translateY(0); }

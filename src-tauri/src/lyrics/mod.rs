@@ -24,8 +24,8 @@ const NOT_FOUND_TTL_S: u64 = 24 * 60 * 60;
 const OFFLINE_RETRY: Duration = Duration::from_secs(20);
 /// When LRCLIB stays busy (429/5xx) beyond our in-request retries, wait this long
 /// (doubling, capped) and try again while the track is still playing.
-const RATE_LIMIT_RETRY: Duration = Duration::from_secs(15);
-const RATE_LIMIT_RETRY_MAX: Duration = Duration::from_secs(120);
+const RATE_LIMIT_RETRY: Duration = Duration::from_secs(3);
+const RATE_LIMIT_RETRY_MAX: Duration = Duration::from_secs(60);
 
 /// Bumped whenever lookup rules change so stale (possibly junk) entries are refetched.
 const CACHE_VERSION: u32 = 2;
@@ -65,6 +65,9 @@ pub struct LyricsService {
     /// Bumped on every track change so stale fetches drop their results.
     generation: AtomicU64,
     track: Mutex<Option<TrackInfo>>,
+    /// The running lookup; aborted when the track changes so skipped songs
+    /// don't keep LRCLIB's (strictly rate-limited) request queue busy.
+    inflight: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
 impl LyricsService {
@@ -82,6 +85,7 @@ impl LyricsService {
             current: Mutex::new(None),
             generation: AtomicU64::new(0),
             track: Mutex::new(None),
+            inflight: Mutex::new(None),
         }
     }
 
@@ -136,6 +140,7 @@ impl LyricsService {
                         Some(t) => self.load(app.clone(), t),
                         None => {
                             self.generation.fetch_add(1, Ordering::SeqCst);
+                            self.replace_inflight(None);
                             *lock(&self.current) = None;
                         }
                     }
@@ -151,7 +156,7 @@ impl LyricsService {
         let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         self.publish(&app, generation, &track, LyricsState::Loading, None);
         let this = Arc::clone(self);
-        tauri::async_runtime::spawn(async move {
+        let task = tauri::async_runtime::spawn(async move {
             let mut rate_limit_wait = RATE_LIMIT_RETRY;
             loop {
                 let result = this.resolve(&track).await;
@@ -194,6 +199,13 @@ impl LyricsService {
                 }
             }
         });
+        self.replace_inflight(Some(task));
+    }
+
+    fn replace_inflight(&self, task: Option<tauri::async_runtime::JoinHandle<()>>) {
+        if let Some(old) = std::mem::replace(&mut *lock(&self.inflight), task) {
+            old.abort();
+        }
     }
 
     fn publish(
@@ -288,28 +300,37 @@ async fn fetch(client: &lrclib::Client, track: &TrackInfo) -> Result<Option<Foun
     let duration_s = (track.length_ms as f64 / 1000.0).round() as u64;
     let clean = normalize::clean_title(&track.title);
     let primary = normalize::primary_artist(&track.artist);
-
-    let mut attempts = vec![(track.artist.as_str(), track.title.as_str())];
-    if (primary, clean.as_str()) != attempts[0] {
-        attempts.push((primary, clean.as_str()));
-    }
-
     let mut fallback: Option<Found> = None;
-    for (artist, title) in &attempts {
-        if let Some(record) = client.get(artist, title, &track.album, duration_s).await? {
-            if record.has_synced() {
-                return Ok(Some(Found::from(&record)));
-            }
-            if record.is_useful() {
-                fallback.get_or_insert_with(|| Found::from(&record));
-            }
+    let mut consider = |record: &lrclib::Record| {
+        if record.is_useful() && fallback.is_none() {
+            fallback = Some(Found::from(record));
+        }
+        record.has_synced()
+    };
+
+    // Fastest first: LRCLIB's own database with the exact metadata (~0.3 s).
+    if let Some(r) = client
+        .get_cached(&track.artist, &track.title, &track.album, duration_s)
+        .await?
+    {
+        if consider(&r) {
+            return Ok(Some(Found::from(&r)));
         }
     }
-
+    // A fuzzy search catches "feat."/"Remastered" variants and other albums.
     let results = client.search(primary, &clean).await?;
     if let Some(best) = lrclib::pick_best(&results, track.length_ms as f64 / 1000.0) {
-        if best.has_synced() || fallback.is_none() {
+        if consider(best) {
             return Ok(Some(Found::from(best)));
+        }
+    }
+    // Last resort, slow: lets LRCLIB look in external sources too.
+    if let Some(r) = client
+        .get(primary, &clean, &track.album, duration_s)
+        .await?
+    {
+        if consider(&r) {
+            return Ok(Some(Found::from(&r)));
         }
     }
     Ok(fallback)

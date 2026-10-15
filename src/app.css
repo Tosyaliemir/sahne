@@ -14,6 +14,11 @@
 @property --c-dark-bg { syntax: "<color>"; inherits: true; initial-value: #121216; }
 @property --c-light-text { syntax: "<color>"; inherits: true; initial-value: #f4f2ee; }
 @property --c-accent { syntax: "<color>"; inherits: true; initial-value: #b8b8c4; }
+@property --c-amb-0 { syntax: "<color>"; inherits: true; initial-value: #5c5c66; }
+@property --c-amb-1 { syntax: "<color>"; inherits: true; initial-value: #6f6f7a; }
+@property --c-amb-2 { syntax: "<color>"; inherits: true; initial-value: #4d4d57; }
+@property --c-amb-3 { syntax: "<color>"; inherits: true; initial-value: #7d7d88; }
+@property --c-amb-4 { syntax: "<color>"; inherits: true; initial-value: #585862; }
 
 :root {
   transition:
@@ -22,7 +27,12 @@
     --c-muted 800ms ease,
     --c-dark-bg 800ms ease,
     --c-light-text 800ms ease,
-    --c-accent 800ms ease;
+    --c-accent 800ms ease,
+    --c-amb-0 800ms ease,
+    --c-amb-1 800ms ease,
+    --c-amb-2 800ms ease,
+    --c-amb-3 800ms ease,
+    --c-amb-4 800ms ease;
 
   --bg: var(--c-dark-bg);
   --text: var(--c-light-text);
@@ -33,7 +43,7 @@
   --accent: var(--c-accent);
 
   /* User-tunable (settings panel). */
-  --backdrop-blur: 40px;
+  --backdrop-blur: 0px;
   --backdrop-dim: 0.35;
 
   color-scheme: dark;

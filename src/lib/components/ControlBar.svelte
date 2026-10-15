@@ -53,7 +53,7 @@
     </div>
     <div class="center">
       <Controls />
-      <ProgressBar />
+      <ProgressBar active={visible} />
     </div>
   {/if}
   <div class="tools">
@@ -90,8 +90,7 @@
     gap: 1.5rem;
     padding: 0.75rem 1.25rem;
     border-radius: 18px;
-    background: color-mix(in srgb, var(--c-dark-bg) 55%, transparent);
-    backdrop-filter: blur(24px) saturate(1.3);
+    background: color-mix(in srgb, var(--c-dark-bg) 72%, transparent);
     box-shadow: 0 10px 40px rgb(0 0 0 / 0.3);
     opacity: 0;
     transform: translateY(1.5rem);
@@ -101,7 +100,10 @@
       transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
     z-index: 10;
   }
+  /* The backdrop blur re-renders whatever moves behind it every frame, so
+     it only exists while the bar is shown. */
   .bar.visible {
+    backdrop-filter: blur(16px);
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;

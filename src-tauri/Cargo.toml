@@ -30,14 +30,6 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "que
 directories = "6"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
-# OpenRGB ambient lighting. The OpenRGB client crate is GPL-2.0, so builds
-# with this feature are distributed under the GPL; default builds stay MIT.
-openrgb2 = { version = "0.4", optional = true }
-
-[features]
-default = []
-lighting = ["dep:openrgb2"]
-
 [profile.release]
 codegen-units = 1
 lto = true

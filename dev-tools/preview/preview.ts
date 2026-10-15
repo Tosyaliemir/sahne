@@ -57,6 +57,7 @@ const palette: PaletteChanged = {
     dark_bg: "#1f1225",
     light_text: "#fbf3f8",
     accent: "#f7cf3a",
+    ambient: ["#f0663f", "#f7cf3a", "#8a4fb0", "#2f7fd0", "#d9467a"],
   },
 };
 
@@ -65,12 +66,11 @@ const settings: Settings = {
   lyrics_style: (q.get("style") as Settings["lyrics_style"]) ?? "klasik",
   font: "embedded",
   font_scale: 1,
-  backdrop_blur: 40,
+  backdrop_blur: 0,
   backdrop_dim: 0.35,
   global_offset_ms: 0,
   mini_position: null,
   start_fullscreen: false,
-  lighting: { enabled: true, mode: "gradyan", devices: ["Klavye"] },
   language: q.get("lang") === "en" ? "en" : "tr",
 };
 
@@ -103,8 +103,6 @@ mockIPC(
         return settings;
       case "list_players":
         return ["sahnemock", "spotify", "vlc"];
-      case "lighting_status":
-        return { available: true, state: "connected", devices: [{ name: "Klavye", leds: 104 }, { name: "Fare", leds: 2 }] };
       default:
         return null;
     }

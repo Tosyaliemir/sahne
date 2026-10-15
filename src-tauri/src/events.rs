@@ -189,7 +189,8 @@ mod tests {
             .keys()
             .map(String::as_str)
             .collect();
-        assert_eq!(keys.len(), 6);
+        assert_eq!(keys.len(), 7);
+        assert_eq!(palette["palette"]["ambient"].as_array().unwrap().len(), 5);
         for k in [
             "dominant",
             "vibrant",
@@ -197,6 +198,7 @@ mod tests {
             "dark_bg",
             "light_text",
             "accent",
+            "ambient",
         ] {
             assert!(keys.contains(&k), "missing {k}");
         }

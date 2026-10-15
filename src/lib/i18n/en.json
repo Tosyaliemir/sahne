@@ -49,15 +49,5 @@
   "settings.window": "Window",
   "settings.startFullscreen": "Start in fullscreen",
   "settings.miniPosition": "Mini window position",
-  "settings.lighting": "Ambient lighting (OpenRGB)",
-  "settings.lightingEnabled": "Paint keyboard/LEDs in the cover's colors",
-  "settings.lightingMode": "Mode",
-  "lighting.unavailable": "This build was compiled without OpenRGB support (lighting feature).",
-  "lighting.connected": "Connected to OpenRGB · {count} devices",
-  "lighting.disabled": "Off.",
-  "lighting.offline": "Can't reach OpenRGB. Open OpenRGB and start its SDK server (127.0.0.1:6742).",
-  "lighting.mode.sabit": "Solid",
-  "lighting.mode.gradyan": "Gradient",
-  "lighting.mode.nefes": "Breathe",
   "mini.expand": "Back to stage mode (M)"
 }

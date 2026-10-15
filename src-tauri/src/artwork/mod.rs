@@ -17,9 +17,10 @@ use crate::paths::{self, Paths};
 use palette::Palette;
 
 const MAX_ART_BYTES: usize = 15 * 1024 * 1024;
-/// Side of the pre-blurred background; the UI scales it up, which smooths it further.
-const BG_SIZE: u32 = 72;
-const BG_SIGMA: f32 = 5.0;
+/// Side of the pre-blurred background; the UI scales it up, which smooths it
+/// further. Large enough to keep the artwork's color regions recognisable.
+const BG_SIZE: u32 = 192;
+const BG_SIGMA: f32 = 9.0;
 /// While offline, try the download again this often (as long as the track plays).
 const OFFLINE_RETRY: Duration = Duration::from_secs(20);
 
@@ -44,8 +45,6 @@ pub struct ArtworkService {
     dir: PathBuf,
     current: Mutex<Option<PaletteChanged>>,
     generation: AtomicU64,
-    /// Current palette for other services (lighting).
-    palette_tx: watch::Sender<Palette>,
 }
 
 impl ArtworkService {
@@ -60,12 +59,7 @@ impl ArtworkService {
             dir: paths.art_cache(),
             current: Mutex::new(None),
             generation: AtomicU64::new(0),
-            palette_tx: watch::Sender::new(Palette::default()),
         }
-    }
-
-    pub fn subscribe_palette(&self) -> watch::Receiver<Palette> {
-        self.palette_tx.subscribe()
     }
 
     pub fn current(&self) -> Option<PaletteChanged> {
@@ -122,7 +116,6 @@ impl ArtworkService {
                 return;
             }
             *lock(&self.current) = Some(payload.clone());
-            self.palette_tx.send_replace(payload.palette.clone());
             tracing::debug!("palette for {}: {:?}", track.title, payload.palette);
             if let Err(e) = app.emit(events::PALETTE_CHANGED, payload) {
                 tracing::warn!("failed to emit palette: {e}");
@@ -141,7 +134,8 @@ impl ArtworkService {
     async fn prepare(&self, url: &str) -> Result<(String, String, Palette), ArtError> {
         let key = paths::stable_hash(url);
         let art_path = self.dir.join(format!("{key}.img"));
-        let bg_path = self.dir.join(format!("{key}-bg.png"));
+        // `-bg2`: regenerated when the backdrop rendering changed.
+        let bg_path = self.dir.join(format!("{key}-bg2.png"));
 
         let bytes = if let Some(local) = url.strip_prefix("file://") {
             let path = percent_decode(local);

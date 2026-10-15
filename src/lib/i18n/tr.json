@@ -49,15 +49,5 @@
   "settings.window": "Pencere",
   "settings.startFullscreen": "Tam ekran başlat",
   "settings.miniPosition": "Mini pencere konumu",
-  "settings.lighting": "Ortam ışığı (OpenRGB)",
-  "settings.lightingEnabled": "Klavye/LED ışıklarını kapak rengine boya",
-  "settings.lightingMode": "Mod",
-  "lighting.unavailable": "Bu sürüm OpenRGB desteği olmadan derlendi (lighting özelliği).",
-  "lighting.connected": "OpenRGB'ye bağlı · {count} cihaz",
-  "lighting.disabled": "Kapalı.",
-  "lighting.offline": "OpenRGB'ye bağlanılamadı. OpenRGB'yi açıp SDK sunucusunu (127.0.0.1:6742) başlat.",
-  "lighting.mode.sabit": "Sabit",
-  "lighting.mode.gradyan": "Gradyan",
-  "lighting.mode.nefes": "Nefes",
   "mini.expand": "Sahne moduna dön (M)"
 }
