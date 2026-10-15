@@ -10,5 +10,12 @@
   "controls.play": "Play",
   "controls.pause": "Pause",
   "controls.seek": "Position in track",
-  "track.noArt": "No artwork"
+  "track.noArt": "No artwork",
+  "lyrics.loading": "Looking for lyrics…",
+  "lyrics.notFound": "No lyrics found for this song",
+  "lyrics.instrumental": "Instrumental",
+  "lyrics.offline": "Offline — lyrics will be fetched once you're back online",
+  "lyrics.error": "Couldn't load lyrics",
+  "lyrics.retry": "Try again",
+  "lyrics.offset": "Lyrics offset: {value} ms"
 }

@@ -33,3 +33,51 @@ export interface PlayerSnapshot {
   playback: PlaybackState | null;
   position: PositionSync | null;
 }
+
+export interface Word {
+  start_ms: number;
+  end_ms: number;
+  text: string;
+}
+
+export interface Line {
+  start_ms: number;
+  end_ms: number;
+  /** Empty for an instrumental break. */
+  text: string;
+  words: Word[] | null;
+}
+
+export type LyricsState =
+  | "loading"
+  | "synced"
+  | "plain"
+  | "instrumental"
+  | "not_found"
+  | "offline"
+  | "error";
+
+export interface LyricsLoaded {
+  track_id: string;
+  state: LyricsState;
+  lines: Line[];
+  plain: string | null;
+  /** Per-track correction; positive shows lyrics later. */
+  offset_ms: number;
+}
+
+export interface Palette {
+  dominant: string;
+  vibrant: string;
+  muted: string;
+  dark_bg: string;
+  light_text: string;
+  accent: string;
+}
+
+export interface PaletteChanged {
+  track_id: string;
+  art_path: string | null;
+  background_path: string | null;
+  palette: Palette;
+}

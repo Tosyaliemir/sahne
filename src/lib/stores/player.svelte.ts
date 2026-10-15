@@ -14,7 +14,7 @@ import type {
 class PlayerStore {
   connected = $state(false);
   playerName = $state<string | null>(null);
-  track = $state<TrackInfo | null>(null);
+  track = $state.raw<TrackInfo | null>(null);
   status = $state<PlaybackStatus>("stopped");
   source = $state<PositionSource>("player");
   /** Interpolated position, refreshed every animation frame. */

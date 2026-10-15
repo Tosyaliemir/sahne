@@ -10,5 +10,12 @@
   "controls.play": "Oynat",
   "controls.pause": "Duraklat",
   "controls.seek": "Şarkıda konum",
-  "track.noArt": "Kapak yok"
+  "track.noArt": "Kapak yok",
+  "lyrics.loading": "Sözler aranıyor…",
+  "lyrics.notFound": "Bu şarkı için söz bulunamadı",
+  "lyrics.instrumental": "Enstrümantal",
+  "lyrics.offline": "Çevrimdışı — bağlantı gelince sözler yeniden aranacak",
+  "lyrics.error": "Sözler alınamadı",
+  "lyrics.retry": "Yeniden dene",
+  "lyrics.offset": "Söz kaydırma: {value} ms"
 }

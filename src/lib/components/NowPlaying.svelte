@@ -1,14 +1,14 @@
 <script lang="ts">
   import type { TrackInfo } from "../types";
   import { player } from "../stores/player.svelte";
+  import { palette } from "../stores/palette.svelte";
   import { t } from "../i18n/index.svelte";
   import Controls from "./Controls.svelte";
   import ProgressBar from "./ProgressBar.svelte";
 
   let { track }: { track: TrackInfo } = $props();
 
-  // file:// artwork needs the asset protocol; it is handled with the artwork cache later.
-  const artSrc = $derived(track.art_url && /^https?:/.test(track.art_url) ? track.art_url : null);
+  const artSrc = $derived(palette.artSrc);
   let artFailed = $state(false);
   $effect(() => {
     void artSrc;
@@ -19,7 +19,14 @@
 <article class="now-playing">
   <div class="art">
     {#if artSrc && !artFailed}
-      <img src={artSrc} alt="" onerror={() => (artFailed = true)} />
+      <img
+        src={artSrc}
+        alt=""
+        onerror={() => {
+          console.warn("artwork failed to load", artSrc);
+          artFailed = true;
+        }}
+      />
     {:else}
       <div class="placeholder" aria-label={t("track.noArt")}>
         <svg viewBox="0 0 24 24" aria-hidden="true">

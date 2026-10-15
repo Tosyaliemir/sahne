@@ -1,11 +1,32 @@
+/* Palette roles, set from the album art. Registering them as <color> lets
+   them transition smoothly when the track changes. */
+@property --c-dominant { syntax: "<color>"; inherits: true; initial-value: #5c5c66; }
+@property --c-vibrant { syntax: "<color>"; inherits: true; initial-value: #8a8a96; }
+@property --c-muted { syntax: "<color>"; inherits: true; initial-value: #6b6b75; }
+@property --c-dark-bg { syntax: "<color>"; inherits: true; initial-value: #121216; }
+@property --c-light-text { syntax: "<color>"; inherits: true; initial-value: #f4f2ee; }
+@property --c-accent { syntax: "<color>"; inherits: true; initial-value: #b8b8c4; }
+
 :root {
-  /* Neutral defaults; the album-art palette takes these over in stage 3. */
-  --bg: #121216;
-  --surface: #1d1d23;
-  --text: #f4f2ee;
-  --text-dim: rgb(244 242 238 / 0.6);
-  --rail: rgb(244 242 238 / 0.18);
-  --hover: rgb(244 242 238 / 0.1);
+  transition:
+    --c-dominant 800ms ease,
+    --c-vibrant 800ms ease,
+    --c-muted 800ms ease,
+    --c-dark-bg 800ms ease,
+    --c-light-text 800ms ease,
+    --c-accent 800ms ease;
+
+  --bg: var(--c-dark-bg);
+  --text: var(--c-light-text);
+  --text-dim: color-mix(in srgb, var(--c-light-text) 62%, transparent);
+  --surface: color-mix(in srgb, var(--c-light-text) 10%, transparent);
+  --rail: color-mix(in srgb, var(--c-light-text) 22%, transparent);
+  --hover: color-mix(in srgb, var(--c-light-text) 12%, transparent);
+  --accent: var(--c-accent);
+
+  /* User-tunable (settings panel). */
+  --backdrop-blur: 40px;
+  --backdrop-dim: 0.35;
 
   color-scheme: dark;
   font-family: "Manrope", "Inter", system-ui, sans-serif;

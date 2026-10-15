@@ -1,0 +1,237 @@
+//! Minimal LRCLIB (https://lrclib.net) client.
+//!
+//! LRCLIB rate-limits aggressively (HTTP 429 with `retry-after`), so requests
+//! are serialized with a minimum spacing and 429s are retried a few times.
+
+use std::time::{Duration, Instant};
+
+use reqwest::StatusCode;
+use serde::Deserialize;
+use tokio::sync::Mutex;
+
+const BASE: &str = "https://lrclib.net/api";
+const MIN_SPACING: Duration = Duration::from_millis(1000);
+const MAX_RETRIES: u32 = 3;
+const MAX_RETRY_WAIT: Duration = Duration::from_secs(10);
+/// LRCLIB's own matching tolerance for search results.
+pub const DURATION_TOLERANCE_S: f64 = 3.0;
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Record {
+    #[serde(default)]
+    pub track_name: String,
+    #[serde(default)]
+    pub artist_name: String,
+    pub duration: Option<f64>,
+    #[serde(default)]
+    pub instrumental: bool,
+    pub plain_lyrics: Option<String>,
+    pub synced_lyrics: Option<String>,
+}
+
+impl Record {
+    pub fn has_synced(&self) -> bool {
+        self.synced_lyrics
+            .as_deref()
+            .is_some_and(|s| !s.trim().is_empty())
+    }
+
+    pub fn has_plain(&self) -> bool {
+        self.plain_lyrics
+            .as_deref()
+            .is_some_and(|s| !s.trim().is_empty())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum FetchError {
+    /// Could not reach the server at all: treat as offline.
+    #[error("network unavailable: {0}")]
+    Offline(reqwest::Error),
+    #[error("LRCLIB keeps rate limiting us")]
+    RateLimited,
+    #[error("LRCLIB error: {0}")]
+    Http(StatusCode),
+    #[error("unexpected LRCLIB response: {0}")]
+    Decode(reqwest::Error),
+}
+
+pub struct Client {
+    http: reqwest::Client,
+    last_request: Mutex<Option<Instant>>,
+}
+
+impl Client {
+    pub fn new() -> Result<Self, reqwest::Error> {
+        let user_agent = format!(
+            "Sahne/{} (https://github.com/<kullanıcı>/sahne)",
+            env!("CARGO_PKG_VERSION")
+        );
+        let http = reqwest::Client::builder()
+            .user_agent(user_agent)
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()?;
+        Ok(Self {
+            http,
+            last_request: Mutex::new(None),
+        })
+    }
+
+    /// Exact lookup. `Ok(None)` means LRCLIB has no such track.
+    pub async fn get(
+        &self,
+        artist: &str,
+        title: &str,
+        album: &str,
+        duration_s: u64,
+    ) -> Result<Option<Record>, FetchError> {
+        let duration = duration_s.to_string();
+        let mut query = vec![
+            ("artist_name", artist),
+            ("track_name", title),
+            ("duration", duration.as_str()),
+        ];
+        if !album.is_empty() {
+            query.push(("album_name", album));
+        }
+        match self.request("get", &query).await? {
+            Some(resp) => resp.json().await.map(Some).map_err(FetchError::Decode),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn search(&self, artist: &str, title: &str) -> Result<Vec<Record>, FetchError> {
+        let query = [("track_name", title), ("artist_name", artist)];
+        match self.request("search", &query).await? {
+            Some(resp) => resp.json().await.map_err(FetchError::Decode),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// Sends a GET with spacing and 429 retries. `Ok(None)` on 404.
+    async fn request(
+        &self,
+        endpoint: &str,
+        query: &[(&str, &str)],
+    ) -> Result<Option<reqwest::Response>, FetchError> {
+        let url = format!("{BASE}/{endpoint}");
+        for attempt in 0..=MAX_RETRIES {
+            self.wait_turn().await;
+            let resp = self.http.get(&url).query(query).send().await.map_err(|e| {
+                if e.is_connect() || e.is_timeout() {
+                    FetchError::Offline(e)
+                } else {
+                    FetchError::Decode(e)
+                }
+            })?;
+            match resp.status() {
+                s if s.is_success() => return Ok(Some(resp)),
+                StatusCode::NOT_FOUND => return Ok(None),
+                StatusCode::TOO_MANY_REQUESTS if attempt < MAX_RETRIES => {
+                    // Retry-After is often 1 s, which just earns another 429; back off harder.
+                    let backoff = Duration::from_secs(2 << attempt);
+                    let wait = retry_after(&resp).map_or(backoff, |r| r.max(backoff));
+                    tracing::debug!("LRCLIB 429, retrying in {wait:?}");
+                    tokio::time::sleep(wait.min(MAX_RETRY_WAIT)).await;
+                }
+                StatusCode::TOO_MANY_REQUESTS => return Err(FetchError::RateLimited),
+                s => return Err(FetchError::Http(s)),
+            }
+        }
+        Err(FetchError::RateLimited)
+    }
+
+    async fn wait_turn(&self) {
+        let mut last = self.last_request.lock().await;
+        if let Some(t) = *last {
+            let since = t.elapsed();
+            if since < MIN_SPACING {
+                tokio::time::sleep(MIN_SPACING - since).await;
+            }
+        }
+        *last = Some(Instant::now());
+    }
+}
+
+fn retry_after(resp: &reqwest::Response) -> Option<Duration> {
+    let secs: u64 = resp
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)?
+        .to_str()
+        .ok()?
+        .trim()
+        .parse()
+        .ok()?;
+    Some(Duration::from_secs(secs))
+}
+
+/// Picks the best search result: duration within tolerance, synced lyrics
+/// preferred over plain ones, closest duration first.
+pub fn pick_best(records: &[Record], duration_s: f64) -> Option<&Record> {
+    let close = |r: &&Record| {
+        r.duration
+            .is_some_and(|d| (d - duration_s).abs() <= DURATION_TOLERANCE_S)
+    };
+    let distance = |r: &Record| r.duration.map_or(f64::MAX, |d| (d - duration_s).abs());
+    let best_by = |pred: &dyn Fn(&Record) -> bool| {
+        records
+            .iter()
+            .filter(close)
+            .filter(|r| pred(r))
+            .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+    };
+    best_by(&|r| r.has_synced())
+        .or_else(|| best_by(&|r| r.has_plain()))
+        .or_else(|| best_by(&|r| r.instrumental))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rec(duration: f64, synced: bool, plain: bool) -> Record {
+        Record {
+            track_name: "t".into(),
+            artist_name: "a".into(),
+            duration: Some(duration),
+            instrumental: !synced && !plain,
+            plain_lyrics: plain.then(|| "p".into()),
+            synced_lyrics: synced.then(|| "[00:01.00]s".into()),
+        }
+    }
+
+    #[test]
+    fn decodes_lrclib_json() {
+        let json = r#"{"id":1,"name":"x","trackName":"Never Gonna Give You Up","artistName":"Rick Astley",
+            "albumName":"Whenever You Need Somebody","duration":213.0,"instrumental":false,"hasWordSync":false,
+            "plainLyrics":"We're no strangers","syncedLyrics":"[00:18.68] We're no strangers"}"#;
+        let r: Record = serde_json::from_str(json).unwrap();
+        assert_eq!(r.duration, Some(213.0));
+        assert!(r.has_synced() && r.has_plain());
+        let r: Record = serde_json::from_str(r#"{"trackName":"x","artistName":"y","duration":null,"instrumental":true,"plainLyrics":null,"syncedLyrics":null}"#).unwrap();
+        assert!(r.instrumental && !r.has_synced() && !r.has_plain());
+    }
+
+    #[test]
+    fn prefers_synced_within_tolerance() {
+        let records = vec![
+            rec(213.0, false, true),
+            rec(260.0, true, true),
+            rec(215.5, true, true),
+            rec(212.0, true, false),
+        ];
+        let best = pick_best(&records, 213.0).unwrap();
+        assert_eq!(best.duration, Some(212.0)); // synced and closest
+    }
+
+    #[test]
+    fn falls_back_to_plain_then_instrumental() {
+        let records = vec![rec(100.0, true, true), rec(213.0, false, true)];
+        assert_eq!(pick_best(&records, 214.0).unwrap().duration, Some(213.0));
+        let records = vec![rec(213.0, false, false)];
+        assert!(pick_best(&records, 213.0).unwrap().instrumental);
+        assert!(pick_best(&[rec(300.0, true, true)], 213.0).is_none());
+    }
+}

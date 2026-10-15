@@ -8,16 +8,14 @@ use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use tauri::{AppHandle, Emitter};
-use tokio::sync::Notify;
+use tokio::sync::{watch, Notify};
 use tokio::time::MissedTickBehavior;
 use zbus::fdo::DBusProxy;
 use zbus::zvariant::ObjectPath;
 use zbus::Connection;
 
 use crate::error::{AppError, AppResult};
-use crate::events::{
-    self, PlaybackState, PlaybackStatus, PlayerSnapshot, PositionSync, TrackInfo,
-};
+use crate::events::{self, PlaybackState, PlaybackStatus, PlayerSnapshot, PositionSync, TrackInfo};
 use mpris::{choose_player, parse_metadata, short_name, PlayerProxy, MPRIS_PREFIX};
 use tracker::PositionTracker;
 
@@ -44,16 +42,26 @@ pub struct PlayerState {
     repoll: Notify,
     started: Instant,
     preferred: Option<String>,
+    /// Current track for the lyrics and artwork services.
+    track_tx: watch::Sender<Option<TrackInfo>>,
 }
 
 impl PlayerState {
     pub fn new(preferred: Option<String>) -> Self {
         Self {
-            shared: Mutex::new(Shared { rate: 1.0, ..Default::default() }),
+            shared: Mutex::new(Shared {
+                rate: 1.0,
+                ..Default::default()
+            }),
             repoll: Notify::new(),
             started: Instant::now(),
             preferred,
+            track_tx: watch::Sender::new(None),
         }
+    }
+
+    pub fn subscribe_tracks(&self) -> watch::Receiver<Option<TrackInfo>> {
+        self.track_tx.subscribe()
     }
 
     fn lock(&self) -> MutexGuard<'_, Shared> {
@@ -69,7 +77,10 @@ impl PlayerState {
         let s = self.lock();
         PlayerSnapshot {
             track: s.track.clone(),
-            playback: s.status.zip(s.player.clone()).map(|(status, player)| PlaybackState { status, player }),
+            playback: s
+                .status
+                .zip(s.player.clone())
+                .map(|(status, player)| PlaybackState { status, player }),
             position: s.last_position.clone(),
         }
     }
@@ -97,13 +108,20 @@ impl PlayerState {
         let proxy = self.proxy()?;
         let (track_id, current_ms) = {
             let s = self.lock();
-            (s.track.as_ref().map(|t| t.id.clone()), s.tracker.estimate(self.now_ms()))
+            (
+                s.track.as_ref().map(|t| t.id.clone()),
+                s.tracker.estimate(self.now_ms()),
+            )
         };
         let target_us = i64::try_from(position_ms.saturating_mul(1000)).unwrap_or(i64::MAX);
-        let path = track_id.as_deref().and_then(|id| ObjectPath::try_from(id).ok());
+        let path = track_id
+            .as_deref()
+            .and_then(|id| ObjectPath::try_from(id).ok());
         let absolute = match &path {
             Some(p) => proxy.set_position(p, target_us).await,
-            None => Err(zbus::Error::Failure("track id is not an object path".into())),
+            None => Err(zbus::Error::Failure(
+                "track id is not an object path".into(),
+            )),
         };
         if let Err(e) = absolute {
             // Players without a usable track id still support relative Seek.
@@ -139,7 +157,11 @@ enum Exit {
     Reselect,
 }
 
-async fn run_session(app: &AppHandle, state: &PlayerState, backoff: &mut Duration) -> AppResult<()> {
+async fn run_session(
+    app: &AppHandle,
+    state: &PlayerState,
+    backoff: &mut Duration,
+) -> AppResult<()> {
     let conn = Connection::session().await?;
     let dbus = DBusProxy::new(&conn).await?;
     let mut owners = dbus.receive_name_owner_changed().await?;
@@ -177,12 +199,26 @@ async fn run_session(app: &AppHandle, state: &PlayerState, backoff: &mut Duratio
 }
 
 /// Lists MPRIS players with their playing state and applies the selection rules.
-async fn select_player(conn: &Connection, dbus: &DBusProxy<'_>, preferred: Option<&str>) -> AppResult<Option<String>> {
+async fn select_player(
+    conn: &Connection,
+    dbus: &DBusProxy<'_>,
+    preferred: Option<&str>,
+) -> AppResult<Option<String>> {
     let mut players = Vec::new();
     for name in dbus.list_names().await? {
-        let Some(short) = name.as_str().strip_prefix(MPRIS_PREFIX) else { continue };
-        let playing = match PlayerProxy::builder(conn).destination(name.to_string())?.build().await {
-            Ok(p) => p.playback_status().await.map(|s| s == "Playing").unwrap_or(false),
+        let Some(short) = name.as_str().strip_prefix(MPRIS_PREFIX) else {
+            continue;
+        };
+        let playing = match PlayerProxy::builder(conn)
+            .destination(name.to_string())?
+            .build()
+            .await
+        {
+            Ok(p) => p
+                .playback_status()
+                .await
+                .map(|s| s == "Playing")
+                .unwrap_or(false),
             Err(_) => false,
         };
         players.push((short.to_owned(), playing));
@@ -199,7 +235,10 @@ async fn follow(
     bus_name: &str,
     owners: &mut zbus::fdo::NameOwnerChangedStream,
 ) -> AppResult<Exit> {
-    let proxy = PlayerProxy::builder(conn).destination(bus_name.to_owned())?.build().await?;
+    let proxy = PlayerProxy::builder(conn)
+        .destination(bus_name.to_owned())?
+        .build()
+        .await?;
     let short = short_name(bus_name).to_owned();
     let mut metadata_changes = proxy.receive_metadata_changed().await;
     let mut status_changes = proxy.receive_playback_status_changed().await;
@@ -298,6 +337,7 @@ fn apply_metadata(
     }
     s.track = track.clone();
     drop(s);
+    state.track_tx.send_replace(track.clone());
     match &track {
         Some(t) => tracing::info!("track: {} – {}", t.artist, t.title),
         None => tracing::info!("no track"),
@@ -309,13 +349,21 @@ fn apply_metadata(
 fn apply_status(app: &AppHandle, state: &PlayerState, status: PlaybackStatus, player: &str) {
     let now = state.now_ms();
     let mut s = state.lock();
-    s.tracker.set_playing(status == PlaybackStatus::Playing, now);
+    s.tracker
+        .set_playing(status == PlaybackStatus::Playing, now);
     if s.status == Some(status) {
         return;
     }
     s.status = Some(status);
     drop(s);
-    emit(app, events::PLAYBACK_STATE, &PlaybackState { status, player: player.to_owned() });
+    emit(
+        app,
+        events::PLAYBACK_STATE,
+        &PlaybackState {
+            status,
+            player: player.to_owned(),
+        },
+    );
 }
 
 async fn poll_position(app: &AppHandle, state: &PlayerState, proxy: &PlayerProxy<'_>, hard: bool) {
@@ -340,7 +388,11 @@ fn publish_position(app: &AppHandle, state: &PlayerState, pos_ms: u64, hard: boo
     let mut s = state.lock();
     let length = s.track.as_ref().map_or(0, |t| t.length_ms);
     let sync = PositionSync {
-        position_ms: if length > 0 { pos_ms.min(length) } else { pos_ms },
+        position_ms: if length > 0 {
+            pos_ms.min(length)
+        } else {
+            pos_ms
+        },
         monotonic_ms: now,
         playing: s.status == Some(PlaybackStatus::Playing),
         rate: s.rate,
@@ -363,9 +415,13 @@ fn disconnect(app: &AppHandle, state: &PlayerState) {
     let was_connected = {
         let mut s = state.lock();
         let was = s.proxy.is_some();
-        *s = Shared { rate: 1.0, ..Default::default() };
+        *s = Shared {
+            rate: 1.0,
+            ..Default::default()
+        };
         was
     };
+    state.track_tx.send_replace(None);
     if was_connected {
         emit(app, events::PLAYER_DISCONNECTED, &());
     }

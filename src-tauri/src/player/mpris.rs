@@ -47,7 +47,10 @@ pub fn short_name(bus_name: &str) -> &str {
 /// Order: an explicit override (env/settings), then Spotify, then the first
 /// player that is currently playing, then any player. `players` holds
 /// `(short_name, is_playing)` pairs in bus order.
-pub fn choose_player<'a>(players: &'a [(String, bool)], preferred: Option<&str>) -> Option<&'a str> {
+pub fn choose_player<'a>(
+    players: &'a [(String, bool)],
+    preferred: Option<&str>,
+) -> Option<&'a str> {
     let find = |want: &str| {
         players
             .iter()
@@ -57,13 +60,19 @@ pub fn choose_player<'a>(players: &'a [(String, bool)], preferred: Option<&str>)
     preferred
         .and_then(find)
         .or_else(|| find("spotify"))
-        .or_else(|| players.iter().find(|(_, playing)| *playing).map(|(n, _)| n.as_str()))
+        .or_else(|| {
+            players
+                .iter()
+                .find(|(_, playing)| *playing)
+                .map(|(n, _)| n.as_str())
+        })
         .or_else(|| players.first().map(|(n, _)| n.as_str()))
 }
 
 /// Matches multi-instance names such as `chromium.instance1234` against `chromium`.
 fn is_instance_of(name: &str, base: &str) -> bool {
-    name.strip_prefix(base).is_some_and(|rest| rest.starts_with(".instance"))
+    name.strip_prefix(base)
+        .is_some_and(|rest| rest.starts_with(".instance"))
 }
 
 /// Builds a [`TrackInfo`] from an MPRIS metadata map. Returns `None` when
@@ -77,8 +86,14 @@ pub fn parse_metadata(meta: &HashMap<String, OwnedValue>, player: &str) -> Optio
         .get("xesam:artist")
         .map(|v| as_string_list(v).join(", "))
         .unwrap_or_default();
-    let album = meta.get("xesam:album").and_then(|v| as_string(v)).unwrap_or_default();
-    let length_us = meta.get("mpris:length").and_then(|v| as_u64(v)).unwrap_or(0);
+    let album = meta
+        .get("xesam:album")
+        .and_then(|v| as_string(v))
+        .unwrap_or_default();
+    let length_us = meta
+        .get("mpris:length")
+        .and_then(|v| as_u64(v))
+        .unwrap_or(0);
     let art_url = meta
         .get("mpris:artUrl")
         .and_then(|v| as_string(v))
@@ -164,7 +179,10 @@ mod tests {
     #[test]
     fn parses_spec_encodings_and_missing_fields() {
         let mut m = HashMap::new();
-        m.insert("mpris:trackid".into(), ov(ObjectPath::try_from("/org/x/1").unwrap()));
+        m.insert(
+            "mpris:trackid".into(),
+            ov(ObjectPath::try_from("/org/x/1").unwrap()),
+        );
         m.insert("mpris:length".into(), ov(-5i64));
         m.insert("xesam:artist".into(), ov("Solo"));
         m.insert("xesam:title".into(), ov("Song"));
@@ -196,10 +214,17 @@ mod tests {
 
     #[test]
     fn player_selection_order() {
-        let p = players(&[("chromium.instance1", true), ("spotifast", false), ("spotify", false)]);
+        let p = players(&[
+            ("chromium.instance1", true),
+            ("spotifast", false),
+            ("spotify", false),
+        ]);
         assert_eq!(choose_player(&p, None), Some("spotify"));
         assert_eq!(choose_player(&p, Some("spotifast")), Some("spotifast"));
-        assert_eq!(choose_player(&p, Some("chromium")), Some("chromium.instance1"));
+        assert_eq!(
+            choose_player(&p, Some("chromium")),
+            Some("chromium.instance1")
+        );
         // Unknown preference falls back to Spotify.
         assert_eq!(choose_player(&p, Some("vlc")), Some("spotify"));
 
