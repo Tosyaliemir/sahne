@@ -1,0 +1,14 @@
+{
+  "status.noPlayer.title": "Spotify açık değil",
+  "status.noPlayer.body": "Spotify'ı açıp bir şarkı çaldığında Sahne kendiliğinden bağlanacak.",
+  "status.idle.title": "Çalan bir şey yok",
+  "status.idle.body": "{player} açık ama şu an bir şarkı çalmıyor.",
+  "status.paused": "Duraklatıldı",
+  "status.estimated": "Oynatıcı konum bilgisi vermiyor; süre tahmini olarak sayılıyor.",
+  "controls.previous": "Önceki",
+  "controls.next": "Sonraki",
+  "controls.play": "Oynat",
+  "controls.pause": "Duraklat",
+  "controls.seek": "Şarkıda konum",
+  "track.noArt": "Kapak yok"
+}

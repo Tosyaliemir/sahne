@@ -1,0 +1,10 @@
+[package]
+name = "mock-player"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Fake MPRIS player (org.mpris.MediaPlayer2.sahnemock) for testing Sahne without Spotify"
+
+[dependencies]
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "signal", "io-std", "io-util"] }

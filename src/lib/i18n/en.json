@@ -1,0 +1,14 @@
+{
+  "status.noPlayer.title": "Spotify isn't open",
+  "status.noPlayer.body": "Sahne will connect on its own once you open Spotify and play a song.",
+  "status.idle.title": "Nothing is playing",
+  "status.idle.body": "{player} is open but nothing is playing right now.",
+  "status.paused": "Paused",
+  "status.estimated": "The player doesn't report its position; time is being estimated.",
+  "controls.previous": "Previous",
+  "controls.next": "Next",
+  "controls.play": "Play",
+  "controls.pause": "Pause",
+  "controls.seek": "Position in track",
+  "track.noArt": "No artwork"
+}
