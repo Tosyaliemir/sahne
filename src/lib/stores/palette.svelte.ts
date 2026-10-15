@@ -76,11 +76,14 @@ class PaletteStore {
     return this.forTrack?.palette ?? NEUTRAL;
   }
 
-  /** Cached artwork if ready, otherwise the player's own URL. */
+  /**
+   * Cached artwork once the backend has stored it. Never the player's remote
+   * URL: the CSP allows images from our own origins only, and the cached copy
+   * arrives a moment after the track anyway. (Same-origin URLs, as used by
+   * the preview harness, are fine.)
+   */
   get artSrc(): string | null {
-    if (this.forTrack?.art_path && this.artUrl) return this.artUrl;
-    const url = player.track?.art_url;
-    return url && /^https?:/.test(url) ? url : null;
+    return this.textureSrc;
   }
 
   /**
