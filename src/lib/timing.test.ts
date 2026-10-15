@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   activeLineIndex,
   activeWordIndex,
+  FAST_WORDS_PER_SEC,
+  harmanPlan,
   interludeAt,
   lyricTime,
   MAX_MS_PER_CHAR,
   wordProgress,
+  wordsPerSecond,
   wordTimings,
 } from "./timing";
 import type { Line } from "./types";
@@ -113,5 +116,28 @@ describe("interludeAt", () => {
     expect(interludeAt(lines, 9000)).toBeNull();
     expect(interludeAt(lines, 22_500)).toBeNull();
     expect(interludeAt([line(1000, 2000, "x")], 500)).toBeNull();
+  });
+});
+
+describe("harmanPlan", () => {
+  // 12 words in 2.5 s ≈ 4.8 words/s: a fast rap line.
+  const fastLine = (s: number) => line(s, s + 2500, "one two three four five six seven eight nine ten eleven twelve");
+  // 5 words over 4 s: ordinary singing.
+  const slowLine = (s: number) => line(s, s + 4000, "we are never ever getting");
+
+  it("measures words per second", () => {
+    expect(wordsPerSecond(fastLine(0))).toBeGreaterThan(FAST_WORDS_PER_SEC);
+    expect(wordsPerSecond(slowLine(0))).toBeLessThan(FAST_WORDS_PER_SEC);
+    expect(wordsPerSecond(line(0, 100, "too short"))).toBe(0);
+  });
+
+  it("switches for a sustained fast passage only", () => {
+    const lines = [slowLine(0), fastLine(4000), fastLine(6500), slowLine(9000), fastLine(13000), slowLine(15500)];
+    // Two fast lines (5 s) form a passage; the lone fast line (2.5 s) does not.
+    expect(harmanPlan(lines)).toEqual([false, true, true, false, false, false]);
+  });
+
+  it("handles empty input", () => {
+    expect(harmanPlan([])).toEqual([]);
   });
 });

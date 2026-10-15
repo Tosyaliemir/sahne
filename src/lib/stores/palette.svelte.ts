@@ -83,6 +83,16 @@ class PaletteStore {
     return url && /^https?:/.test(url) ? url : null;
   }
 
+  /**
+   * Artwork usable as a WebGL texture: must be same-origin (our blob), since
+   * cross-origin images such as Spotify's CDN can't be uploaded to WebGL.
+   */
+  get textureSrc(): string | null {
+    if (this.forTrack?.art_path && this.artUrl) return this.artUrl;
+    const url = player.track?.art_url;
+    return url && url.startsWith(location.origin) ? url : null;
+  }
+
   get backgroundSrc(): string | null {
     return this.forTrack?.background_path ? this.backgroundUrl : null;
   }

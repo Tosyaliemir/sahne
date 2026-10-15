@@ -1,6 +1,16 @@
 # Sahne
 
+[![CI](https://github.com/OWNER/sahne/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/sahne/actions/workflows/ci.yml)
+
 Spotify'da (veya MPRIS destekleyen başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir Linux masaüstü uygulaması.
+
+![Klasik stil, akışkan arka plan](docs/klasik.png)
+
+| Dalga stili | Bulanık arka plan |
+|---|---|
+| ![Dalga](docs/dalga.png) | ![Bulanık](docs/bulanik.png) |
+
+Mini mod: ![Mini mod](docs/mini.png)
 
 - Spotify Web API, hesap, anahtar veya Premium **gerekmez**: oynatıcı bilgisi D-Bus/MPRIS'ten okunur.
 - Sözler ücretsiz ve anahtarsız [LRCLIB](https://lrclib.net)'ten gelir, diskte önbelleğe alınır.
@@ -8,7 +18,12 @@ Spotify'da (veya MPRIS destekleyen başka bir oynatıcıda) çalan şarkının s
 
 ## Kurulum
 
-`pnpm tauri build` iki paket üretir:
+En kolayı [Releases](https://github.com/OWNER/sahne/releases) sayfasından indirmek:
+
+- **AppImage:** `chmod +x Sahne_*.AppImage && ./Sahne_*.AppImage`
+- **.deb (Debian/Ubuntu):** `sudo apt install ./Sahne_*.deb`
+
+Kaynaktan derlemek için aşağıdaki "Geliştirme" bölümüne bak; `pnpm tauri build` iki paket üretir:
 
 - `src-tauri/target/release/bundle/appimage/Sahne_<sürüm>_amd64.AppImage` — tek dosya, kurulum gerektirmez (`chmod +x` ile çalıştır).
 - `src-tauri/target/release/bundle/deb/Sahne_<sürüm>_amd64.deb` — `sudo apt install ./Sahne_*.deb`.
@@ -23,7 +38,7 @@ Spotify'ı açıp bir şarkı çal, Sahne'yi başlat. Birkaç yüz milisaniye i�
 | `←` / `→` | Önceki / sonraki şarkı |
 | `F` / `Esc` | Tam ekran / tam ekrandan çık |
 | `M` | Mini mod (küçük, her zaman üstte pencere) |
-| `S` | Animasyon stilini değiştir: **Klasik → Kinetik → Sade** |
+| `S` | Animasyon stilini değiştir: **Klasik → Kinetik → Sade → Dalga → Harman** |
 | `[` / `]` | Bu şarkının sözlerini 100 ms öne al / geciktir (kalıcı) |
 | `,` | Ayarlar |
 
@@ -34,6 +49,17 @@ Söz satırına tıklamak şarkıyı o satıra sarar; alt çubuktaki ilerleme ç
 - **Klasik:** Aktif satır ortada ve büyük; kelimeler söylendikçe soldan sağa dolar, hafifçe zıplar ve parlar. Önceki/sonraki satırlar küçük ve soluk.
 - **Kinetik:** Her kelime tek başına ekranın ortasında, ölçek ve hafif dönmeyle belirir.
 - **Sade:** Hareket yok, yalnızca renk dolumu. Sistemde "hareketi azalt" (`prefers-reduced-motion`) açıksa otomatik seçilir.
+- **Dalga:** Klasik düzen; kelimeler söylendikçe sırayla aşağıdan yerine yükselir, satır boyunca bir dalga akar.
+- **Harman:** Klasik akar; saniyede ~3,4 kelimeyi aşan ve en az 3,5 saniye süren hızlı bölümlerde (rap, "flex" kısımları) kinetiğe geçer, bölüm bitince yumuşakça klasiğe döner.
+
+**Arka plan**
+
+- **Akışkan** (varsayılan): Kapağın kendisi, iki katman hâlinde zıt yönlerde yavaşça döner ve sıvı gibi bükülür (WebGL shader), kapaktan çıkarılan 5 renkle harmanlanır. Düşük çözünürlükte çizilip büyütüldüğü için GPU'yu yormaz; WebGL yoksa kendiliğinden Bulanık'a döner.
+- **Bulanık:** Önceden bulanıklaştırılmış kapak ve üzerinde süzülen 5 renk alanı.
+
+**Ekran koruyucu**
+
+Müzik çalarken bilgisayar belirli bir süre (varsayılan 3 dk) boşta kalırsa Sahne öne gelir ve tam ekran olur; fareyi oynatınca veya bir tuşa basınca pencereler eski hâline (gizli, küçültülmüş, mini mod…) döner. Ayarlardan kapatılabilir, süresi değiştirilebilir. İstersen ekran koruyucu açıkken ekranın kararmasını da engelleyebilir (bu, sistemin kilit ekranını da geciktirir; varsayılan kapalı). Boşta kalma süresi Wayland'de `ext-idle-notify` protokolüyle (destekleyen compositor'larda; KDE Plasma 6'da test edildi), yoksa GNOME (Mutter IdleMonitor) veya X11 (`org.freedesktop.ScreenSaver`) D-Bus arayüzleriyle ölçülür. Müzik çalarken oynatıcıların koyduğu "uyku engelleri" sayılmaz, yani müzik çalarken de çalışır.
 
 LRCLIB'deki sözlerin çoğu satır düzeyinde zamanlıdır. Kelime zamanları (Enhanced LRC) yoksa satır süresi kelimelere uzunluklarına göre dağıtılır; bu yüzden kelime vurgusu bir tahmindir, satır geçişleri ise gerçek zamanlıdır.
 
@@ -90,7 +116,7 @@ pnpm check                     # Svelte/TS tip kontrolü
 cd src-tauri && cargo test     # Rust birim testleri
 ```
 
-Ayrıntılı log için `RUST_LOG=sahne_lib=debug pnpm tauri dev`. Arayüzdeki JS hataları da `frontend` hedefiyle aynı loga düşer; geliştirme modunda her 10 saniyede kare istatistiği (`frames: 60.0 fps, p95 …`) yazılır.
+Ekran koruyucuyu beklemeden denemek için `SAHNE_SCREENSAVER_SECS=15 pnpm tauri dev`. Ayrıntılı log için `RUST_LOG=sahne_lib=debug pnpm tauri dev`. Arayüzdeki JS hataları da `frontend` hedefiyle aynı loga düşer; geliştirme modunda her 10 saniyede kare istatistiği (`frames: 60.0 fps, p95 …`) yazılır.
 
 ### Mimari
 
@@ -99,10 +125,10 @@ src-tauri/src/
   player/     MPRIS izleme, oynatıcı seçimi, konum takibi (Position=0 yedeği), kontroller
   lyrics/     LRCLIB istemcisi, LRC ayrıştırıcı, başlık temizleme, önbellek, offset'ler
   artwork/    kapak indirme/önbellek, OKLab k-means palet, bulanık arka plan
-  settings.rs, windows.rs (mini mod), events.rs (frontend'e giden olay tipleri)
+  idle.rs, screensaver.rs (ekran koruyucu), settings.rs, windows.rs (mini mod), events.rs
 src/
   lib/stores/       player, lyrics, palette, settings, ui
-  lib/components/   LyricsView (klasik/sade), FillWord, KineticView, Background, ControlBar, SettingsPanel…
+  lib/components/   LyricsView (klasik/sade/dalga), FillWord, KineticView, HarmanView, FlowBackground (WebGL), Background, ControlBar, SettingsPanel…
   lib/timing.ts     aktif satır/kelime, kelime zamanlaması, enstrümantal aralar
   lib/clock.ts      backend senkronları arasında 60 fps konum interpolasyonu
   MiniApp.svelte    mini pencere
@@ -134,8 +160,9 @@ SAHNE_PLAYER=sahnemock pnpm tauri dev
 ```sh
 pnpm vite --port 1430
 # http://127.0.0.1:1430/preview.html?view=main&style=kinetik&at=13000
-# parametreler: view=main|mini, style=klasik|kinetik|sade, at=<ms>, paused=1,
-#               panel=settings, lyrics=synced|plain|loading|not_found, lang=en, static=1
+# parametreler: view=main|mini, style=klasik|kinetik|sade|dalga|harman, at=<ms>, paused=1,
+#               panel=settings, lyrics=synced|plain|loading|not_found, lang=en,
+#               bg=akiskan|bulanik, static=1
 ```
 
 ## MPRIS verisini elle kontrol etme
@@ -174,6 +201,19 @@ playerctl -p spotify status         # Playing / Paused
 - Ağ: `--share=network` (LRCLIB ve kapak indirme).
 - Önbellek/ayarlar Flatpak'ın XDG dizinlerine düşer; `directories` crate'i bunu kendiliğinden halleder.
 - NVIDIA'da `__NV_DISABLE_EXPLICIT_SYNC=1` manifest'te ortam değişkeni olarak da verilebilir.
+
+## Katkı
+
+Hata ve öneriler için issue açabilirsin. Pull request göndermeden önce:
+
+```sh
+pnpm check && pnpm test
+cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+```
+
+Aynı kontroller her push'ta GitHub Actions'ta çalışır. `v*` etiketi (`git tag v0.2.0 && git push --tags`) gönderildiğinde AppImage ve .deb derlenip taslak bir sürüme eklenir.
+
+Arka plan efekti, Apple Music'in sözler ekranındaki ve [AMLL](https://github.com/amll-dev/applemusic-like-lyrics)'deki akışkan kapak arka planlarından esinlenmiştir; kodu Sahne için sıfırdan yazılmıştır (AMLL AGPL lisanslıdır, ondan kod alınmamıştır).
 
 ## Lisans
 

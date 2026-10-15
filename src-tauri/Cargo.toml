@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Animated synced lyrics and ambient colors for Spotify on Linux"
 authors = ["Sahne contributors"]
 license = "MIT"
+repository = "https://github.com/OWNER/sahne"
 edition = "2021"
 
 [lib]
@@ -29,6 +30,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
 directories = "6"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+libc = "0.2"
 
 [profile.release]
 codegen-units = 1

@@ -13,6 +13,19 @@ pub enum LyricsStyle {
     Klasik,
     Kinetik,
     Sade,
+    /// Classic layout; words rise into place as they are sung.
+    Dalga,
+    /// Classic, switching to kinetic for fast passages.
+    Harman,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BackdropStyle {
+    /// WebGL: the artwork itself, slowly flowing and swirling.
+    Akiskan,
+    /// Pre-blurred artwork with drifting color fields.
+    Bulanik,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,6 +63,13 @@ pub struct Settings {
     pub mini_position: Option<(i32, i32)>,
     pub start_fullscreen: bool,
     pub language: Language,
+    pub backdrop_style: BackdropStyle,
+    /// Go fullscreen when the computer has been idle this long while music plays.
+    pub screensaver_enabled: bool,
+    pub screensaver_minutes: u32,
+    /// While the screensaver shows, keep the screen from blanking/locking.
+    /// Off by default: it delays the system lock screen.
+    pub screensaver_keep_awake: bool,
 }
 
 impl Default for Settings {
@@ -65,6 +85,10 @@ impl Default for Settings {
             mini_position: None,
             start_fullscreen: false,
             language: Language::Tr,
+            backdrop_style: BackdropStyle::Akiskan,
+            screensaver_enabled: true,
+            screensaver_minutes: 3,
+            screensaver_keep_awake: false,
         }
     }
 }
@@ -72,6 +96,7 @@ impl Default for Settings {
 impl Settings {
     /// Clamps values a hand-edited file might have pushed out of range.
     pub fn sanitized(mut self) -> Self {
+        self.screensaver_minutes = self.screensaver_minutes.clamp(1, 120);
         self.font_scale = if self.font_scale.is_finite() {
             self.font_scale.clamp(0.5, 2.0)
         } else {

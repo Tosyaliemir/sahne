@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
   import { player } from "./lib/stores/player.svelte";
   import { lyrics, OFFSET_STEP_MS } from "./lib/stores/lyrics.svelte";
   import { palette } from "./lib/stores/palette.svelte";
@@ -10,15 +11,20 @@
   import { t } from "./lib/i18n/index.svelte";
   import { startFrameStats } from "./lib/perf";
   import Background from "./lib/components/Background.svelte";
+  import FlowBackground from "./lib/components/FlowBackground.svelte";
   import StatusScreen from "./lib/components/StatusScreen.svelte";
   import LyricsView from "./lib/components/LyricsView.svelte";
   import KineticView from "./lib/components/KineticView.svelte";
+  import HarmanView from "./lib/components/HarmanView.svelte";
   import PlainLyrics from "./lib/components/PlainLyrics.svelte";
   import TrackHero from "./lib/components/TrackHero.svelte";
   import ControlBar from "./lib/components/ControlBar.svelte";
   import SettingsPanel from "./lib/components/SettingsPanel.svelte";
 
   const HIDE_CONTROLS_MS = 2000;
+
+  /** WebGL missing or failing: fall back to the CSS backdrop. */
+  let flowUnsupported = $state(false);
 
   let fullscreen = $state(false);
   const appWindow = getCurrentWindow();
@@ -30,6 +36,14 @@
     lyrics.start().then((s) => stops.push(s));
     palette.start().then((s) => stops.push(s));
     appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
+    listen<boolean>("screensaver", (e) => {
+      ui.screensaver = e.payload;
+      if (e.payload) {
+        ui.settingsOpen = false;
+        ui.controlsVisible = false;
+      }
+      appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
+    }).then((u) => stops.push(u));
     bumpControls();
     if (import.meta.env.DEV) stops.push(startFrameStats("frames"));
     return () => {
@@ -42,6 +56,8 @@
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   let hoveringBar = false;
   function bumpControls() {
+    // The backend ends the screensaver on input; don't flash the bar meanwhile.
+    if (ui.screensaver) return;
     ui.controlsVisible = true;
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
@@ -143,7 +159,11 @@
 
 <svelte:window onkeydown={onKey} onmousemove={bumpControls} onmousedown={bumpControls} />
 
-<Background />
+{#if settings.current.backdrop_style === "akiskan" && !flowUnsupported}
+  <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
+{:else}
+  <Background />
+{/if}
 
 <main class:hide-cursor={!ui.controlsVisible}>
   {#if !player.connected}
@@ -157,8 +177,10 @@
     {#key data.track_id}
       {#if style === "kinetik"}
         <KineticView {data} />
+      {:else if style === "harman"}
+        <HarmanView {data} />
       {:else}
-        <LyricsView {data} style={style === "sade" ? "sade" : "klasik"} />
+        <LyricsView {data} {style} />
       {/if}
     {/key}
   {:else if data?.state === "plain" && data.plain}

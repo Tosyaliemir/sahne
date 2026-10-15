@@ -14,7 +14,7 @@
   import Interlude from "./Interlude.svelte";
   import FillWord from "./FillWord.svelte";
 
-  let { data, style }: { data: LyricsLoaded; style: "klasik" | "sade" } = $props();
+  let { data, style }: { data: LyricsLoaded; style: "klasik" | "sade" | "dalga" } = $props();
 
   /** Lines as displayed: a long intro becomes its own (empty) line. */
   const lines: Line[] = $derived.by(() => {
@@ -232,7 +232,8 @@
   .line.far {
     display: none;
   }
-  .klasik .line {
+  .klasik .line,
+  .dalga .line {
     transition:
       transform 480ms cubic-bezier(0.34, 1.32, 0.64, 1),
       opacity 380ms ease;
@@ -261,9 +262,21 @@
   .klasik .active :global(.fw.on) {
     animation: pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .klasik .active :global(.fw.glow .fill) {
+  .klasik .active :global(.fw.glow .fill),
+  .dalga .active :global(.fw.glow .fill) {
     text-shadow: 0 0 0.22em color-mix(in srgb, var(--accent) 80%, transparent);
   }
+  /* Dalga: words wait slightly lowered and rise into place, one after
+     another, as they are sung, so a wave runs along the line. */
+  .dalga .active :global(.fw) {
+    transform: translate3d(0, 0.16em, 0) scale(0.94);
+    transition: transform 650ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform;
+  }
+  .dalga .active :global(.fw.on) {
+    transform: none;
+  }
+
   @keyframes pop {
     0% { transform: translateY(0); }
     35% { transform: translateY(-4px); }

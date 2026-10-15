@@ -17,6 +17,10 @@ export const DEFAULT_SETTINGS: Settings = {
   mini_position: null,
   start_fullscreen: false,
   language: "tr",
+  backdrop_style: "akiskan",
+  screensaver_enabled: true,
+  screensaver_minutes: 3,
+  screensaver_keep_awake: false,
 };
 
 class SettingsStore {

@@ -47,19 +47,16 @@
         <option value="en">English</option>
       </select>
     </label>
-    <div class="row">
+    <label class="row">
       <span>{t("settings.style")}</span>
-      <div class="segmented" role="radiogroup">
+      <select value={s.lyrics_style}
+        onchange={(e) => set("lyrics_style", e.currentTarget.value as Settings["lyrics_style"])}>
         {#each STYLES as style (style)}
-          <button
-            role="radio"
-            aria-checked={s.lyrics_style === style}
-            class:on={s.lyrics_style === style}
-            onclick={() => set("lyrics_style", style)}>{t(`style.${style}` as const)}</button
-          >
+          <option value={style}>{t(`style.${style}` as const)}</option>
         {/each}
-      </div>
-    </div>
+      </select>
+    </label>
+    <p class="hint">{t(`styleHint.${s.lyrics_style}` as const)}</p>
     <label class="row">
       <span>{t("settings.font")}</span>
       <select value={s.font} onchange={(e) => set("font", e.currentTarget.value as Settings["font"])}>
@@ -72,11 +69,22 @@
       <input type="range" min="0.6" max="1.6" step="0.05" value={s.font_scale}
         oninput={(e) => set("font_scale", +e.currentTarget.value)} />
     </label>
+    <div class="row">
+      <span>{t("settings.backdrop")}</span>
+      <div class="segmented" role="radiogroup">
+        {#each ["akiskan", "bulanik"] as const as b (b)}
+          <button role="radio" aria-checked={s.backdrop_style === b} class:on={s.backdrop_style === b}
+            onclick={() => set("backdrop_style", b)}>{t(`backdrop.${b}` as const)}</button>
+        {/each}
+      </div>
+    </div>
+    {#if s.backdrop_style === "bulanik"}
     <label class="row">
       <span>{t("settings.blur")} <em>{s.backdrop_blur}px</em></span>
       <input type="range" min="0" max="60" step="5" value={s.backdrop_blur}
         oninput={(e) => set("backdrop_blur", +e.currentTarget.value)} />
     </label>
+    {/if}
     <label class="row">
       <span>{t("settings.dim")} <em>{Math.round(s.backdrop_dim * 100)}%</em></span>
       <input type="range" min="0" max="0.85" step="0.05" value={s.backdrop_dim}
@@ -122,6 +130,28 @@
   </section>
 
   <section>
+    <h3>{t("settings.screensaver")}</h3>
+    <label class="row check">
+      <span>{t("settings.screensaverEnabled")}</span>
+      <input type="checkbox" checked={s.screensaver_enabled}
+        onchange={(e) => set("screensaver_enabled", e.currentTarget.checked)} />
+    </label>
+    {#if s.screensaver_enabled}
+      <label class="row">
+        <span>{t("settings.screensaverAfter")} <em>{t("settings.minutes", { n: String(s.screensaver_minutes) })}</em></span>
+        <input type="range" min="1" max="30" step="1" value={s.screensaver_minutes}
+          oninput={(e) => set("screensaver_minutes", +e.currentTarget.value)} />
+      </label>
+      <label class="row check">
+        <span>{t("settings.keepAwake")}</span>
+        <input type="checkbox" checked={s.screensaver_keep_awake}
+          onchange={(e) => set("screensaver_keep_awake", e.currentTarget.checked)} />
+      </label>
+      <p class="hint">{t("settings.screensaverHint")}</p>
+    {/if}
+  </section>
+
+  <section>
     <h3>{t("settings.window")}</h3>
     <label class="row check">
       <span>{t("settings.startFullscreen")}</span>
@@ -135,7 +165,6 @@
       </div>
     {/if}
   </section>
-
 </aside>
 
 <style>

@@ -49,5 +49,21 @@
   "settings.window": "Pencere",
   "settings.startFullscreen": "Tam ekran başlat",
   "settings.miniPosition": "Mini pencere konumu",
-  "mini.expand": "Sahne moduna dön (M)"
+  "mini.expand": "Sahne moduna dön (M)",
+  "style.dalga": "Dalga",
+  "style.harman": "Harman",
+  "settings.backdrop": "Arka plan",
+  "backdrop.akiskan": "Akışkan",
+  "backdrop.bulanik": "Bulanık",
+  "styleHint.klasik": "Aktif satır ortada büyük; kelimeler söylendikçe dolar.",
+  "styleHint.kinetik": "Her kelime tek başına ekranın ortasında belirir.",
+  "styleHint.sade": "Hareket yok, yalnızca renk dolumu.",
+  "styleHint.dalga": "Kelimeler söylendikçe sırayla yükselir; satır boyunca dalga gibi akar.",
+  "styleHint.harman": "Klasik akar; hızlı bölümlerde kinetiğe geçer, bölüm bitince geri döner.",
+  "settings.screensaver": "Ekran koruyucu",
+  "settings.screensaverEnabled": "Boşta kalınca Sahne'yi tam ekran aç",
+  "settings.screensaverAfter": "Süre",
+  "settings.minutes": "{n} dk",
+  "settings.keepAwake": "Ekran koruyucu açıkken ekranın kapanmasını engelle",
+  "settings.screensaverHint": "Yalnızca müzik çalarken devreye girer; fareyi oynatınca ya da bir tuşa basınca pencereler eski hâline döner. Ekranı açık tutmak, sistemin ekran kilidini de geciktirir."
 }

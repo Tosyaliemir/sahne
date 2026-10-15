@@ -87,9 +87,11 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Result<Self, reqwest::Error> {
+        // LRCLIB asks clients to identify themselves with a link.
         let user_agent = format!(
-            "Sahne/{} (https://github.com/<kullanıcı>/sahne)",
-            env!("CARGO_PKG_VERSION")
+            "Sahne/{} ({})",
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_REPOSITORY")
         );
         let http = reqwest::Client::builder()
             .user_agent(user_agent)

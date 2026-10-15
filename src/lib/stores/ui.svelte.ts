@@ -1,4 +1,4 @@
-export const STYLES = ["klasik", "kinetik", "sade"] as const;
+export const STYLES = ["klasik", "kinetik", "sade", "dalga", "harman"] as const;
 export type LyricsStyle = (typeof STYLES)[number];
 
 const reducedMotion =
@@ -10,6 +10,8 @@ class UiStore {
   reducedMotion = $state(reducedMotion?.matches ?? false);
   controlsVisible = $state(true);
   settingsOpen = $state(false);
+  /** The backend put us on screen because the computer went idle. */
+  screensaver = $state(false);
 
   constructor() {
     reducedMotion?.addEventListener("change", (e) => (this.reducedMotion = e.matches));

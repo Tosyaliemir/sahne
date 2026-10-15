@@ -96,3 +96,40 @@ export function interludeAt(lines: readonly Line[], t: number): Interlude | null
   const line = lines[i];
   return line.text.trim() === "" ? make(line.start_ms, line.end_ms) : null;
 }
+
+/** Words per second at which a line counts as a fast (rap/flex) passage. */
+export const FAST_WORDS_PER_SEC = 3.4;
+/** Fast passages shorter than this stay classic, so one quick line doesn't flicker. */
+export const FAST_MIN_SECTION_MS = 3500;
+
+/** How quickly a line's words go by, from its (real or estimated) word timings. */
+export function wordsPerSecond(line: Line): number {
+  const ws = wordTimings(line);
+  if (ws.length < 4) return 0;
+  const span = ws[ws.length - 1].end_ms - ws[0].start_ms;
+  return span > 0 ? (ws.length * 1000) / span : 0;
+}
+
+/**
+ * Harman mode: for each line, whether it belongs to a fast passage that
+ * should switch to the kinetic style. Neighbouring fast lines are merged, and
+ * passages shorter than FAST_MIN_SECTION_MS are ignored.
+ */
+export function harmanPlan(lines: readonly Line[]): boolean[] {
+  const fast = lines.map((l) => wordsPerSecond(l) >= FAST_WORDS_PER_SEC);
+  const plan = new Array<boolean>(lines.length).fill(false);
+  let i = 0;
+  while (i < lines.length) {
+    if (!fast[i]) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < lines.length && fast[j + 1]) j++;
+    if (lines[j].end_ms - lines[i].start_ms >= FAST_MIN_SECTION_MS) {
+      for (let k = i; k <= j; k++) plan[k] = true;
+    }
+    i = j + 1;
+  }
+  return plan;
+}

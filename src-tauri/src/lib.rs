@@ -1,9 +1,11 @@
 mod artwork;
 mod error;
 mod events;
+mod idle;
 mod lyrics;
 mod paths;
 mod player;
+mod screensaver;
 mod settings;
 mod windows;
 
@@ -14,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use artwork::ArtworkService;
 use error::AppResult;
 use events::{LyricsLoaded, PaletteChanged, PlayerSnapshot};
+use idle::IdleMonitor;
 use lyrics::LyricsService;
 use paths::Paths;
 use player::PlayerState;
@@ -82,10 +85,12 @@ fn save_settings(
     app: AppHandle,
     settings: SettingsState<'_>,
     player: Player<'_>,
+    idle: State<'_, Arc<IdleMonitor>>,
     new_settings: Settings,
 ) -> Settings {
     let saved = settings.set(new_settings);
     player.set_preferred(effective_preferred_player(&saved));
+    screensaver::apply_settings(&idle, &settings);
     if let Err(e) = app.emit(SETTINGS_CHANGED, saved.clone()) {
         tracing::warn!("failed to emit settings: {e}");
     }
@@ -157,12 +162,15 @@ pub fn run() {
     let player = Arc::new(PlayerState::new(effective_preferred_player(&initial)));
     let lyrics = Arc::new(LyricsService::new(&paths));
     let artwork = Arc::new(ArtworkService::new(&paths));
+    let idle = Arc::new(IdleMonitor::start(std::time::Duration::from_secs(180)));
+    screensaver::apply_settings(&idle, &settings);
 
     let result = tauri::Builder::default()
         .manage(player.clone())
         .manage(lyrics.clone())
         .manage(artwork.clone())
         .manage(settings.clone())
+        .manage(idle.clone())
         .setup(move |app| {
             // Development aid: tell test instances apart from the everyday one.
             if let (Ok(title), Some(window)) = (
@@ -177,6 +185,7 @@ pub fn run() {
                 }
             }
             let handle = app.handle().clone();
+            screensaver::spawn(handle.clone(), settings.clone(), player.clone(), idle);
             lyrics.spawn(handle.clone(), player.subscribe_tracks());
             artwork.spawn(handle.clone(), player.subscribe_tracks());
             player::spawn(handle, player);

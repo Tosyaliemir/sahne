@@ -92,6 +92,10 @@ impl PlayerState {
         u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX)
     }
 
+    pub fn is_playing(&self) -> bool {
+        self.lock().status == Some(PlaybackStatus::Playing)
+    }
+
     pub fn snapshot(&self) -> PlayerSnapshot {
         let s = self.lock();
         PlayerSnapshot {

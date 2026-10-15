@@ -7,7 +7,7 @@
  *
  * Parameters: view=main|mini, style=klasik|kinetik|sade, at=<ms position>,
  * panel=settings, lyrics=synced|plain|loading|not_found, paused=1, lang=en,
- * static=1 (no CSS transitions/animations, for stable screenshots; also run
+ * bg=akiskan|bulanik, static=1 (no CSS transitions/animations, for stable screenshots; also run
  * Chrome with --force-prefers-reduced-motion so Svelte transitions are instant)
  */
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -72,6 +72,10 @@ const settings: Settings = {
   mini_position: null,
   start_fullscreen: false,
   language: q.get("lang") === "en" ? "en" : "tr",
+  backdrop_style: q.get("bg") === "bulanik" ? "bulanik" : "akiskan",
+  screensaver_enabled: true,
+  screensaver_minutes: 3,
+  screensaver_keep_awake: false,
 };
 
 const position = { position_ms: at, monotonic_ms: 0, playing: !paused, rate: 1, source: "player", hard: true } as const;
