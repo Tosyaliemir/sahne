@@ -3,6 +3,7 @@ mod error;
 mod events;
 mod idle;
 mod lyrics;
+mod net;
 mod paths;
 mod player;
 mod screensaver;
@@ -123,11 +124,33 @@ fn effective_preferred_player(settings: &Settings) -> Option<String> {
 /// Lets the webview report errors into our log, where they are visible.
 #[tauri::command]
 fn frontend_log(level: String, message: String) {
+    let message = sanitize_log(&message);
     match level.as_str() {
         "error" => tracing::error!(target: "frontend", "{message}"),
         "warn" => tracing::warn!(target: "frontend", "{message}"),
         _ => tracing::info!(target: "frontend", "{message}"),
     }
+}
+
+/// Longest frontend log message kept, in bytes.
+const MAX_LOG_BYTES: usize = 4096;
+
+/// Keeps frontend messages to one bounded log line: control characters
+/// (newlines, ANSI escapes) are escaped so they cannot forge or hide lines.
+fn sanitize_log(message: &str) -> String {
+    let mut out = String::with_capacity(message.len().min(MAX_LOG_BYTES));
+    for c in message.chars() {
+        if out.len() >= MAX_LOG_BYTES {
+            out.push_str("…[truncated]");
+            break;
+        }
+        if c.is_control() {
+            out.extend(c.escape_default());
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn init_tracing() {
@@ -217,5 +240,19 @@ pub fn run() {
     if let Err(e) = result {
         tracing::error!("failed to start Sahne: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frontend_log_is_one_bounded_line() {
+        assert_eq!(sanitize_log("a\nb\x1b[31mc"), "a\\nb\\u{1b}[31mc");
+        let long = sanitize_log(&"x".repeat(100_000));
+        assert!(long.len() < MAX_LOG_BYTES + 32);
+        assert!(long.ends_with("[truncated]"));
+        assert_eq!(sanitize_log("şarkı ✓"), "şarkı ✓");
     }
 }
