@@ -19,20 +19,38 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["protocol-asset"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# MPRIS over the session bus; tokio integration so it shares Tauri's runtime.
-zbus = { version = "5", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["sync", "time", "macros", "rt"] }
-# Merging D-Bus signal streams in the player loop.
-futures-util = { version = "0.3", default-features = false, features = ["std"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
 directories = "6"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# MPRIS over the session bus; tokio integration so it shares Tauri's runtime.
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+# Merging D-Bus signal streams in the player loop.
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# Idle detection on Wayland.
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# Media sessions (GSMTC), last-input time and display power requests.
+windows = { version = "0.62", features = [
+  "Foundation",
+  "Foundation_Collections",
+  "Media_Control",
+  "Storage_Streams",
+  "Win32_Foundation",
+  "Win32_System_Power",
+  "Win32_System_SystemInformation",
+  "Win32_System_SystemServices",
+  "Win32_System_Threading",
+  "Win32_UI_Input_KeyboardAndMouse",
+] }
 
 [profile.release]
 codegen-units = 1

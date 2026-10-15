@@ -23,6 +23,7 @@ struct Before {
     mini: bool,
 }
 
+#[cfg(target_os = "linux")]
 #[zbus::proxy(
     interface = "org.freedesktop.ScreenSaver",
     default_service = "org.freedesktop.ScreenSaver",
@@ -42,8 +43,7 @@ pub fn spawn(
     tauri::async_runtime::spawn(async move {
         let mut idle_rx = idle.subscribe();
         let mut before: Option<Before> = None;
-        // The inhibition lives as long as the D-Bus connection that asked for it.
-        let mut cookie: Option<(zbus::Connection, u32)> = None;
+        let mut awake: Option<KeepAwake> = None;
         loop {
             if idle_rx.changed().await.is_err() {
                 return;
@@ -55,15 +55,15 @@ pub fn spawn(
                 before = activate(&app, &settings);
                 let _ = app.emit(SCREENSAVER, true);
                 if s.screensaver_keep_awake {
-                    cookie = inhibit().await;
+                    awake = KeepAwake::start().await;
                 }
             } else if !is_idle {
                 if let Some(b) = before.take() {
                     tracing::info!("screensaver: user is back");
                     let _ = app.emit(SCREENSAVER, false);
                     restore(&app, &settings, b);
-                    if let Some((conn, c)) = cookie.take() {
-                        uninhibit(&conn, c).await;
+                    if let Some(a) = awake.take() {
+                        a.stop().await;
                     }
                 }
             }
@@ -140,20 +140,85 @@ fn restore(app: &AppHandle, settings: &SettingsStore, b: Before) {
     }
 }
 
-async fn inhibit() -> Option<(zbus::Connection, u32)> {
-    let conn = zbus::Connection::session().await.ok()?;
-    let proxy = InhibitorProxy::new(&conn).await.ok()?;
-    match proxy.inhibit("Sahne", "Ekran koruyucu modu").await {
-        Ok(c) => Some((conn, c)),
-        Err(e) => {
-            tracing::warn!("could not keep the screen awake: {e}");
-            None
+/// Keeps the screen from blanking or locking while it exists (until `stop`).
+#[cfg(target_os = "linux")]
+struct KeepAwake {
+    /// The inhibition lives as long as the D-Bus connection that asked for it.
+    conn: zbus::Connection,
+    cookie: u32,
+}
+
+#[cfg(target_os = "linux")]
+impl KeepAwake {
+    async fn start() -> Option<Self> {
+        let conn = zbus::Connection::session().await.ok()?;
+        let proxy = InhibitorProxy::new(&conn).await.ok()?;
+        match proxy.inhibit("Sahne", "Ekran koruyucu modu").await {
+            Ok(cookie) => Some(Self { conn, cookie }),
+            Err(e) => {
+                tracing::warn!("could not keep the screen awake: {e}");
+                None
+            }
+        }
+    }
+
+    async fn stop(self) {
+        if let Ok(proxy) = InhibitorProxy::new(&self.conn).await {
+            let _ = proxy.un_inhibit(self.cookie).await;
         }
     }
 }
 
-async fn uninhibit(conn: &zbus::Connection, cookie: u32) {
-    if let Ok(proxy) = InhibitorProxy::new(conn).await {
-        let _ = proxy.un_inhibit(cookie).await;
+/// Keeps the display on while it exists (until `stop`): a Windows power
+/// request, which unlike `SetThreadExecutionState` isn't tied to a thread.
+#[cfg(windows)]
+struct KeepAwake(::windows::Win32::Foundation::HANDLE);
+
+// SAFETY: a power request handle may be used and closed from any thread.
+#[cfg(windows)]
+unsafe impl Send for KeepAwake {}
+
+#[cfg(windows)]
+impl KeepAwake {
+    async fn start() -> Option<Self> {
+        use ::windows::core::PWSTR;
+        use ::windows::Win32::System::Power::{
+            PowerCreateRequest, PowerRequestDisplayRequired, PowerSetRequest,
+        };
+        use ::windows::Win32::System::SystemServices::POWER_REQUEST_CONTEXT_VERSION;
+        use ::windows::Win32::System::Threading::{
+            POWER_REQUEST_CONTEXT_SIMPLE_STRING, REASON_CONTEXT, REASON_CONTEXT_0,
+        };
+        let mut reason: Vec<u16> = "Sahne ekran koruyucu modu\0".encode_utf16().collect();
+        let context = REASON_CONTEXT {
+            Version: POWER_REQUEST_CONTEXT_VERSION,
+            Flags: POWER_REQUEST_CONTEXT_SIMPLE_STRING,
+            Reason: REASON_CONTEXT_0 {
+                SimpleReasonString: PWSTR(reason.as_mut_ptr()),
+            },
+        };
+        // SAFETY: `context` and the string it points to outlive the call,
+        // which copies the reason.
+        let result = unsafe { PowerCreateRequest(&context) }.and_then(|handle| {
+            // SAFETY: `handle` is the request just created.
+            unsafe { PowerSetRequest(handle, PowerRequestDisplayRequired) }.map(|()| handle)
+        });
+        match result {
+            Ok(handle) => Some(Self(handle)),
+            Err(e) => {
+                tracing::warn!("could not keep the screen awake: {e}");
+                None
+            }
+        }
+    }
+
+    async fn stop(self) {
+        use ::windows::Win32::Foundation::CloseHandle;
+        use ::windows::Win32::System::Power::{PowerClearRequest, PowerRequestDisplayRequired};
+        // SAFETY: `self.0` is our live power request; it is not used after this.
+        unsafe {
+            let _ = PowerClearRequest(self.0, PowerRequestDisplayRequired);
+            let _ = CloseHandle(self.0);
+        }
     }
 }

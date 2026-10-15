@@ -206,7 +206,6 @@ fn path_string(p: &Path) -> String {
 
 /// Decodes `%XX` escapes in file:// URLs (players escape spaces and non-ASCII).
 fn percent_decode(s: &str) -> PathBuf {
-    use std::os::unix::ffi::OsStringExt;
     let hex = |b: u8| (b as char).to_digit(16).map(|d| d as u8);
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -222,7 +221,20 @@ fn percent_decode(s: &str) -> PathBuf {
         out.push(bytes[i]);
         i += 1;
     }
-    PathBuf::from(std::ffi::OsString::from_vec(out))
+    bytes_to_path(out)
+}
+
+/// Unix paths are arbitrary bytes; Windows paths here are always UTF-8
+/// (we build those URLs ourselves from the cache directory).
+#[cfg(unix)]
+fn bytes_to_path(bytes: Vec<u8>) -> PathBuf {
+    use std::os::unix::ffi::OsStringExt;
+    PathBuf::from(std::ffi::OsString::from_vec(bytes))
+}
+
+#[cfg(not(unix))]
+fn bytes_to_path(bytes: Vec<u8>) -> PathBuf {
+    PathBuf::from(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {

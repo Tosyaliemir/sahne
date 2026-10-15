@@ -4,10 +4,18 @@ use serde::Serialize;
 pub enum AppError {
     #[error("no media player is connected")]
     NoPlayer,
+    #[cfg(target_os = "linux")]
     #[error("D-Bus error: {0}")]
     DBus(#[from] zbus::Error),
+    #[cfg(target_os = "linux")]
     #[error("D-Bus error: {0}")]
     Fdo(#[from] zbus::fdo::Error),
+    #[cfg(windows)]
+    #[error("Windows media error: {0}")]
+    Windows(#[from] ::windows::core::Error),
+    #[cfg(windows)]
+    #[error("{0}")]
+    Unsupported(&'static str),
 }
 
 // Tauri commands send errors to the frontend; a message string is all it needs.

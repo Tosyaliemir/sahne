@@ -40,6 +40,8 @@ pub enum PlaybackStatus {
 }
 
 impl PlaybackStatus {
+    /// From an MPRIS `PlaybackStatus` string.
+    #[cfg(target_os = "linux")]
     pub fn parse(s: &str) -> Self {
         match s {
             "Playing" => Self::Playing,

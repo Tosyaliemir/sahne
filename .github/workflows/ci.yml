@@ -50,3 +50,31 @@ jobs:
       - name: Mock player builds
         working-directory: dev-tools/mock-player
         run: cargo clippy -- -D warnings
+
+  # The Windows backend (media sessions, idle time, power requests) only
+  # compiles there; make sure it keeps building and passing its tests.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      # tauri::generate_context! embeds the built frontend.
+      - run: pnpm build
+      - name: Backend checks
+        working-directory: src-tauri
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo test

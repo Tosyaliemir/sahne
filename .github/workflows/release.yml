@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like v0.2.0 to build the AppImage and .deb and attach them to a
-# draft GitHub release.
+# Push a tag like v0.2.0 to build the Linux (AppImage, .deb) and Windows
+# (setup .exe) packages and attach them to a draft GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -11,11 +11,20 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # older glibc: the AppImage runs on more distributions
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04 # older glibc: the AppImage runs on more distributions
+            bundles: appimage,deb
+          - os: windows-latest
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: System dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
@@ -41,5 +50,10 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Sahne ${{ github.ref_name }}
-          releaseBody: "Kurulum ve kullanım için README'ye bakın."
+          releaseBody: |
+            **Linux:** `.AppImage` (her dağıtımda, kurulumsuz) veya `.deb` (Debian/Ubuntu).
+            **Windows:** `Sahne_..._x64-setup.exe` dosyasını indirip çalıştırın.
+
+            Kurulum ve kullanım için README'ye bakın.
           releaseDraft: true
+          args: --bundles ${{ matrix.bundles }}

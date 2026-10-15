@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/OWNER/sahne/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/sahne/actions/workflows/ci.yml)
 
-Spotify'da (veya MPRIS destekleyen başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir Linux masaüstü uygulaması.
+Spotify'da (veya sistemin medya kontrollerine bağlanan başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir masaüstü uygulaması. **Linux** ve **Windows** için.
 
 ![Klasik stil, akışkan arka plan](docs/klasik.png)
 
@@ -12,21 +12,24 @@ Spotify'da (veya MPRIS destekleyen başka bir oynatıcıda) çalan şarkının s
 
 Mini mod: ![Mini mod](docs/mini.png)
 
-- Spotify Web API, hesap, anahtar veya Premium **gerekmez**: oynatıcı bilgisi D-Bus/MPRIS'ten okunur.
+- Spotify Web API, hesap, anahtar veya Premium **gerekmez**: oynatıcı bilgisi sistemden okunur (Linux'ta D-Bus/MPRIS, Windows'ta sistem medya kontrolleri — ses düğmesine basınca çıkan medya kutusunun kaynağı).
 - Sözler ücretsiz ve anahtarsız [LRCLIB](https://lrclib.net)'ten gelir, diskte önbelleğe alınır.
-- Wayland ve X11'de çalışır; GNOME ve KDE hedeflenmiştir.
+- Linux'ta Wayland ve X11'de çalışır; GNOME ve KDE hedeflenmiştir. Windows 10 ve 11'de çalışır.
 
 ## Kurulum
 
 En kolayı [Releases](https://github.com/OWNER/sahne/releases) sayfasından indirmek:
 
-- **AppImage:** `chmod +x Sahne_*.AppImage && ./Sahne_*.AppImage`
-- **.deb (Debian/Ubuntu):** `sudo apt install ./Sahne_*.deb`
+- **Windows:** `Sahne_<sürüm>_x64-setup.exe` dosyasını indirip çalıştır. Yönetici izni istemez; Başlat menüsüne eklenir. (İmzasız olduğu için SmartScreen "Windows bilgisayarınızı korudu" diyebilir: **Ek bilgi → Yine de çalıştır**.)
+- **Linux, AppImage (her dağıtım):** `chmod +x Sahne_*.AppImage && ./Sahne_*.AppImage`
+- **Linux, .deb (Debian/Ubuntu):** `sudo apt install ./Sahne_*.deb`
 
 Kaynaktan derlemek için aşağıdaki "Geliştirme" bölümüne bak; `pnpm tauri build` iki paket üretir:
 
 - `src-tauri/target/release/bundle/appimage/Sahne_<sürüm>_amd64.AppImage` — tek dosya, kurulum gerektirmez (`chmod +x` ile çalıştır).
 - `src-tauri/target/release/bundle/deb/Sahne_<sürüm>_amd64.deb` — `sudo apt install ./Sahne_*.deb`.
+
+Windows'ta `pnpm tauri build --bundles nsis` kurulum dosyasını `src-tauri/target/release/bundle/nsis/` altına üretir (Rust, Node.js ve Visual Studio C++ Build Tools gerekir).
 
 ## Kullanım
 
@@ -66,7 +69,7 @@ Bunlar WebGL2 ister; yoksa kapak efektsiz görünür. Sistemde "hareketi azalt" 
 
 **Ekran koruyucu**
 
-Müzik çalarken bilgisayar belirli bir süre (varsayılan 3 dk) boşta kalırsa Sahne öne gelir ve tam ekran olur; fareyi oynatınca veya bir tuşa basınca pencereler eski hâline (gizli, küçültülmüş, mini mod…) döner. Ayarlardan kapatılabilir, süresi değiştirilebilir. İstersen ekran koruyucu açıkken ekranın kararmasını da engelleyebilir (bu, sistemin kilit ekranını da geciktirir; varsayılan kapalı). Boşta kalma süresi Wayland'de `ext-idle-notify` protokolüyle (destekleyen compositor'larda; KDE Plasma 6'da test edildi), yoksa GNOME (Mutter IdleMonitor) veya X11 (`org.freedesktop.ScreenSaver`) D-Bus arayüzleriyle ölçülür. Müzik çalarken oynatıcıların koyduğu "uyku engelleri" sayılmaz, yani müzik çalarken de çalışır.
+Müzik çalarken bilgisayar belirli bir süre (varsayılan 3 dk) boşta kalırsa Sahne öne gelir ve tam ekran olur; fareyi oynatınca veya bir tuşa basınca pencereler eski hâline (gizli, küçültülmüş, mini mod…) döner. Ayarlardan kapatılabilir, süresi değiştirilebilir. İstersen ekran koruyucu açıkken ekranın kararmasını da engelleyebilir (bu, sistemin kilit ekranını da geciktirir; varsayılan kapalı). Windows'ta boşta kalma süresi son klavye/fare hareketinden ölçülür. Linux'ta boşta kalma süresi Wayland'de `ext-idle-notify` protokolüyle (destekleyen compositor'larda; KDE Plasma 6'da test edildi), yoksa GNOME (Mutter IdleMonitor) veya X11 (`org.freedesktop.ScreenSaver`) D-Bus arayüzleriyle ölçülür. Müzik çalarken oynatıcıların koyduğu "uyku engelleri" sayılmaz, yani müzik çalarken de çalışır.
 
 LRCLIB'deki sözlerin çoğu satır düzeyinde zamanlıdır. Kelime zamanları (Enhanced LRC) yoksa satır süresi kelimelere uzunluklarına göre dağıtılır; bu yüzden kelime vurgusu bir tahmindir, satır geçişleri ise gerçek zamanlıdır.
 
@@ -129,7 +132,8 @@ Ekran koruyucuyu beklemeden denemek için `SAHNE_SCREENSAVER_SECS=15 pnpm tauri 
 
 ```
 src-tauri/src/
-  player/     MPRIS izleme, oynatıcı seçimi, konum takibi (Position=0 yedeği), kontroller
+  player/     oynatıcı izleme: linux.rs (MPRIS), gsmtc.rs (Windows medya oturumları),
+              ortak durum, oynatıcı seçimi, konum takibi (Position=0 yedeği), kontroller
   lyrics/     LRCLIB istemcisi, LRC ayrıştırıcı, başlık temizleme, önbellek, offset'ler
   artwork/    kapak indirme/önbellek, OKLab k-means palet, bulanık arka plan
   idle.rs, screensaver.rs (ekran koruyucu), settings.rs, windows.rs (mini mod), events.rs
@@ -197,6 +201,8 @@ playerctl -p spotify status         # Playing / Paused
 
 ## Bilinen sınırlar
 
+- **Windows'ta ses kontrolü yok:** Windows'un medya arayüzü oynatıcının sesini vermiyor, bu yüzden ses düğmesi gizlenir; sesi Spotify'dan veya sistemden ayarla. Oynatıcı seçimi, sözler, kapak ve kontroller aynıdır.
+
 - **NVIDIA + Wayland:** WebKitGTK'nın GPU çizicisi NVIDIA'nın "explicit sync" özelliği yüzünden "Error 71" ile çöker. Sahne NVIDIA sürücüsünü görünce `__NV_DISABLE_EXPLICIT_SYNC=1` ayarlar; GPU çizimi açık kalır, 60 fps korunur. (Sık önerilen `WEBKIT_DISABLE_DMABUF_RENDERER=1` de çökmeyi önler ama CPU'ya kopyalamaya geçtiği için tam ekranda kasar.) Değişkeni kendin ayarlarsan Sahne dokunmaz.
 - **Wayland'de mini pencere:** "Her zaman üstte" KDE'de çalışır. GNOME Wayland uygulamaların bunu yapmasına izin vermez. Wayland'de pencere konumu da uygulama tarafından kaydedilip geri yüklenemez (X11'de yapılır).
 - **LRCLIB:** Topluluk verisidir ve ücretsiz bir hizmettir. Bazı şarkılarda zamanlama kayık olabilir (`[`/`]` bunun için var), Türkçe şarkılarda kapsama daha azdır. Saniyede yaklaşık bir isteğe izin verir (fazlasına HTTP 429) ve yoğun zamanlarda 503 döner; Sahne istekleri buna göre aralar, şarkı geçilince eski aramayı iptal eder ve "aranıyor" ekranında kalarak arka planda yeniden dener. Arama sırası: önce hızlı `get-cached` (~0,3 sn), sonra `search`, en son yavaş `get`. Bir kez bulunan sözler önbellekten anında gelir. 4 satırdan az içeren kayıtlar çöp kabul edilip atlanır.
@@ -218,7 +224,7 @@ pnpm check && pnpm test
 cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
-Aynı kontroller her push'ta GitHub Actions'ta çalışır. `v*` etiketi (`git tag v0.2.0 && git push --tags`) gönderildiğinde AppImage ve .deb derlenip taslak bir sürüme eklenir.
+Aynı kontroller her push'ta GitHub Actions'ta çalışır. `v*` etiketi (`git tag v0.2.0 && git push --tags`) gönderildiğinde Linux (AppImage, .deb) ve Windows (kurulum .exe) paketleri derlenip taslak bir sürüme eklenir.
 
 Arka plan efekti, Apple Music'in sözler ekranındaki ve [AMLL](https://github.com/amll-dev/applemusic-like-lyrics)'deki akışkan kapak arka planlarından esinlenmiştir; kodu Sahne için sıfırdan yazılmıştır (AMLL AGPL lisanslıdır, ondan kod alınmamıştır).
 
