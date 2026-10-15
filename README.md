@@ -1,6 +1,6 @@
 # Sahne
 
-[![CI](https://github.com/OWNER/sahne/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/sahne/actions/workflows/ci.yml)
+[![CI](https://github.com/Tosyaliemir/sahne/actions/workflows/ci.yml/badge.svg)](https://github.com/Tosyaliemir/sahne/actions/workflows/ci.yml)
 
 Spotify'da (veya sistemin medya kontrollerine bağlanan başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir masaüstü uygulaması. **Linux** ve **Windows** için.
 
@@ -18,7 +18,7 @@ Mini mod: ![Mini mod](docs/mini.png)
 
 ## Kurulum
 
-En kolayı [Releases](https://github.com/OWNER/sahne/releases) sayfasından indirmek:
+En kolayı [Releases](https://github.com/Tosyaliemir/sahne/releases) sayfasından indirmek:
 
 - **Windows:** `Sahne_<sürüm>_x64-setup.exe` dosyasını indirip çalıştır. Yönetici izni istemez; Başlat menüsüne eklenir. (İmzasız olduğu için SmartScreen "Windows bilgisayarınızı korudu" diyebilir: **Ek bilgi → Yine de çalıştır**.)
 - **Linux, AppImage (her dağıtım):** `chmod +x Sahne_*.AppImage && ./Sahne_*.AppImage`

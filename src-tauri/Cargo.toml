@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Animated synced lyrics and ambient colors for Spotify on Linux"
 authors = ["Sahne contributors"]
 license = "MIT"
-repository = "https://github.com/OWNER/sahne"
+repository = "https://github.com/Tosyaliemir/sahne"
 edition = "2021"
 
 [lib]
