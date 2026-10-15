@@ -14,6 +14,8 @@ pub const PLAYBACK_STATE: &str = "playback-state";
 pub const POSITION_SYNC: &str = "position-sync";
 pub const PLAYER_DISCONNECTED: &str = "player-disconnected";
 pub const LYRICS_LOADED: &str = "lyrics-loaded";
+/// Payload: `Option<f64>` (0..1); `None` when the player has no volume control.
+pub const VOLUME_CHANGED: &str = "volume-changed";
 pub const PALETTE_CHANGED: &str = "palette-changed";
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -81,6 +83,7 @@ pub struct PlayerSnapshot {
     pub track: Option<TrackInfo>,
     pub playback: Option<PlaybackState>,
     pub position: Option<PositionSync>,
+    pub volume: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

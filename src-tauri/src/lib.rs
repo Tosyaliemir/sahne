@@ -55,6 +55,11 @@ async fn seek(player: Player<'_>, position_ms: u64) -> AppResult<()> {
 }
 
 #[tauri::command]
+async fn set_volume(player: Player<'_>, volume: f64) -> AppResult<()> {
+    player.set_volume(volume).await
+}
+
+#[tauri::command]
 fn get_lyrics(lyrics: Lyrics<'_>) -> Option<LyricsLoaded> {
     lyrics.current()
 }
@@ -197,6 +202,7 @@ pub fn run() {
             next,
             previous,
             seek,
+            set_volume,
             get_lyrics,
             get_palette,
             set_lyrics_offset,

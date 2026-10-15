@@ -32,6 +32,7 @@ struct Shared {
     track: Option<TrackInfo>,
     status: Option<PlaybackStatus>,
     rate: f64,
+    volume: Option<f64>,
     tracker: PositionTracker,
     last_position: Option<PositionSync>,
 }
@@ -105,7 +106,13 @@ impl PlayerState {
                 .zip(s.player.clone())
                 .map(|(status, player)| PlaybackState { status, player }),
             position: s.last_position.clone(),
+            volume: s.volume,
         }
+    }
+
+    pub async fn set_volume(&self, volume: f64) -> AppResult<()> {
+        self.proxy()?.set_volume(volume.clamp(0.0, 1.0)).await?;
+        Ok(())
     }
 
     fn proxy(&self) -> AppResult<PlayerProxy<'static>> {
@@ -280,18 +287,22 @@ async fn follow(
     let mut metadata_changes = proxy.receive_metadata_changed().await;
     let mut status_changes = proxy.receive_playback_status_changed().await;
     let mut seeks = proxy.receive_seeked().await?;
+    let mut volume_changes = proxy.receive_volume_changed().await;
 
     let rate = proxy.rate().await.unwrap_or(1.0);
+    let volume = proxy.volume().await.ok().filter(|v| v.is_finite());
     {
         let mut s = state.lock();
         s.proxy = Some(proxy.clone());
         s.player = Some(short.clone());
         s.rate = rate;
+        s.volume = volume;
         s.track = None;
         s.status = None;
     }
     let status = PlaybackStatus::parse(&proxy.playback_status().await?);
     apply_status(app, state, status, &short);
+    emit(app, events::VOLUME_CHANGED, &volume);
     apply_metadata(app, state, &proxy.metadata().await?, &short);
     poll_position(app, state, &proxy, true).await;
 
@@ -305,6 +316,13 @@ async fn follow(
                     if apply_metadata(app, state, &meta, &short) {
                         poll_position(app, state, &proxy, true).await;
                     }
+                }
+            }
+            Some(change) = volume_changes.next() => {
+                if let Ok(v) = change.get().await {
+                    let v = Some(v.clamp(0.0, 1.0));
+                    state.lock().volume = v;
+                    emit(app, events::VOLUME_CHANGED, &v);
                 }
             }
             Some(change) = status_changes.next() => {

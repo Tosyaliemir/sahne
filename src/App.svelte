@@ -23,7 +23,6 @@
   import ControlBar from "./lib/components/ControlBar.svelte";
   import SettingsPanel from "./lib/components/SettingsPanel.svelte";
 
-  const HIDE_CONTROLS_MS = 2000;
 
   /** WebGL missing or failing: fall back to the CSS backdrop. */
   let flowUnsupported = $state(false);
@@ -62,9 +61,11 @@
     if (ui.screensaver) return;
     ui.controlsVisible = true;
     clearTimeout(hideTimer);
+    const secs = settings.current.controls_hide_secs;
+    if (secs <= 0) return; // "never hide"
     hideTimer = setTimeout(() => {
       if (!hoveringBar) ui.controlsVisible = false;
-    }, HIDE_CONTROLS_MS);
+    }, secs * 1000);
   }
 
   // --- toast ----------------------------------------------------------------
@@ -124,6 +125,14 @@
         break;
       case "ArrowRight":
         player.next();
+        break;
+      case "ArrowUp":
+      case "ArrowDown":
+        if (player.volume !== null) {
+          e.preventDefault();
+          player.setVolume(player.volume + (e.key === "ArrowUp" ? 0.05 : -0.05));
+          showToast(t("toast.volume", { value: String(Math.round(Math.min(1, Math.max(0, player.volume)) * 100)) }));
+        }
         break;
       case "[":
         nudge(-OFFSET_STEP_MS);

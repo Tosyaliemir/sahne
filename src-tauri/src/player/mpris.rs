@@ -32,6 +32,11 @@ pub trait Player {
     fn playback_status(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn rate(&self) -> zbus::Result<f64>;
+    /// 0.0..=1.0; not every player implements it.
+    #[zbus(property)]
+    fn volume(&self) -> zbus::Result<f64>;
+    #[zbus(property)]
+    fn set_volume(&self, value: f64) -> zbus::Result<()>;
     // Spotify does not emit PropertiesChanged for Position, so never cache it.
     #[zbus(property(emits_changed_signal = "false"))]
     fn position(&self) -> zbus::Result<i64>;

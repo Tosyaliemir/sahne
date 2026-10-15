@@ -5,6 +5,7 @@
   import { t } from "../i18n/index.svelte";
   import Controls from "./Controls.svelte";
   import ProgressBar from "./ProgressBar.svelte";
+  import VolumeControl from "./VolumeControl.svelte";
 
   let {
     visible,
@@ -57,6 +58,8 @@
     </div>
   {/if}
   <div class="tools">
+    <VolumeControl />
+    <span class="sep" aria-hidden="true"></span>
     <button onclick={onCycleStyle} title={t("controls.style")} aria-label={t("controls.style")}>
       <span class="style-name">{t(`style.${ui.effectiveStyle}` as const)}</span>
     </button>
@@ -165,8 +168,15 @@
   }
   .tools {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 0.35rem;
+  }
+  .sep {
+    width: 1px;
+    height: 1.4rem;
+    margin: 0 0.35rem;
+    background: var(--rail);
   }
   .tools button {
     display: grid;

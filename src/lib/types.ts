@@ -32,6 +32,8 @@ export interface PlayerSnapshot {
   track: TrackInfo | null;
   playback: PlaybackState | null;
   position: PositionSync | null;
+  /** 0..1, or null when the player has no volume control. */
+  volume: number | null;
 }
 
 export interface Word {
@@ -96,6 +98,8 @@ export interface Settings {
   global_offset_ms: number;
   mini_position: [number, number] | null;
   start_fullscreen: boolean;
+  /** Seconds before the bottom bar hides; 0 = never. */
+  controls_hide_secs: number;
   language: "tr" | "en";
   backdrop_style: "akiskan" | "bulanik" | "kapak" | "renk";
   edge_glow: boolean;

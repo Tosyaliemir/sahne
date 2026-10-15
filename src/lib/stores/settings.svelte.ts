@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   global_offset_ms: 0,
   mini_position: null,
   start_fullscreen: false,
+  controls_hide_secs: 2,
   language: "tr",
   backdrop_style: "akiskan",
   edge_glow: false,

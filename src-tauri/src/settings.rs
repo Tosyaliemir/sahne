@@ -68,6 +68,8 @@ pub struct Settings {
     /// Last mini-window position (physical pixels), if the user moved it.
     pub mini_position: Option<(i32, i32)>,
     pub start_fullscreen: bool,
+    /// Seconds without mouse movement before the bottom bar hides; 0 = never.
+    pub controls_hide_secs: u32,
     pub language: Language,
     pub backdrop_style: BackdropStyle,
     /// Light flowing along the screen edges in the cover's colors.
@@ -92,6 +94,7 @@ impl Default for Settings {
             global_offset_ms: 0,
             mini_position: None,
             start_fullscreen: false,
+            controls_hide_secs: 2,
             language: Language::Tr,
             backdrop_style: BackdropStyle::Akiskan,
             edge_glow: false,
@@ -106,6 +109,7 @@ impl Settings {
     /// Clamps values a hand-edited file might have pushed out of range.
     pub fn sanitized(mut self) -> Self {
         self.screensaver_minutes = self.screensaver_minutes.clamp(1, 120);
+        self.controls_hide_secs = self.controls_hide_secs.min(60);
         self.font_scale = if self.font_scale.is_finite() {
             self.font_scale.clamp(0.5, 2.0)
         } else {

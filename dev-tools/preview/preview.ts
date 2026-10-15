@@ -71,6 +71,7 @@ const settings: Settings = {
   global_offset_ms: 0,
   mini_position: null,
   start_fullscreen: false,
+  controls_hide_secs: 2,
   language: q.get("lang") === "en" ? "en" : "tr",
   backdrop_style: (q.get("bg") as Settings["backdrop_style"]) ?? "akiskan",
   edge_glow: q.get("glow") === "1",
@@ -84,6 +85,7 @@ const snapshot: PlayerSnapshot = {
   track,
   playback: { status: paused ? "paused" : "playing", player: "sahnemock" },
   position,
+  volume: 0.62,
 };
 
 if (q.get("static") === "1") {

@@ -9,7 +9,7 @@ use crate::settings::SettingsStore;
 
 pub const MAIN: &str = "main";
 pub const MINI: &str = "mini";
-const MINI_SIZE: (f64, f64) = (460.0, 132.0);
+const MINI_SIZE: (f64, f64) = (500.0, 168.0);
 const MINI_MARGIN: i32 = 24;
 
 /// Wayland compositors don't let clients read or set window positions.
@@ -61,6 +61,9 @@ fn build_mini(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .resizable(false)
         .decorations(false)
         .always_on_top(true)
+        // Transparent so the page can draw rounded corners.
+        .transparent(true)
+        .shadow(false)
         .skip_taskbar(true)
         .visible(false)
         .build()?;

@@ -70,5 +70,11 @@
   "styleHint.duvar": "Son satırlar büyük harflerle üst üste dizilip 3B'de hafifçe salınan bir duvar oluşturur.",
   "backdrop.kapak": "Orijinal kapak",
   "backdrop.renk": "Renk",
-  "settings.edgeGlow": "Kenar ışığı (kenarlarda akan renkler)"
+  "settings.edgeGlow": "Kenar ışığı (kenarlarda akan renkler)",
+  "controls.mute": "Sesi kapat / aç",
+  "controls.volume": "Ses",
+  "toast.volume": "Ses: %{value}",
+  "settings.controlsHide": "Alt çubuğu gizle",
+  "settings.seconds": "{n} sn sonra",
+  "settings.neverHide": "Hiç gizleme"
 }

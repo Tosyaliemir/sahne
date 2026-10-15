@@ -157,6 +157,16 @@
 
   <section>
     <h3>{t("settings.window")}</h3>
+    <label class="row">
+      <span>{t("settings.controlsHide")}</span>
+      <select value={String(s.controls_hide_secs)}
+        onchange={(e) => set("controls_hide_secs", +e.currentTarget.value)}>
+        {#each [1, 2, 3, 5, 10] as n (n)}
+          <option value={String(n)}>{t("settings.seconds", { n: String(n) })}</option>
+        {/each}
+        <option value="0">{t("settings.neverHide")}</option>
+      </select>
+    </label>
     <label class="row check">
       <span>{t("settings.startFullscreen")}</span>
       <input type="checkbox" checked={s.start_fullscreen}

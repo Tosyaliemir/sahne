@@ -70,5 +70,11 @@
   "styleHint.duvar": "Recent lines stack into a wall of big type that sways gently in 3D.",
   "backdrop.kapak": "Original cover",
   "backdrop.renk": "Color",
-  "settings.edgeGlow": "Edge light (colors flowing along the edges)"
+  "settings.edgeGlow": "Edge light (colors flowing along the edges)",
+  "controls.mute": "Mute / unmute",
+  "controls.volume": "Volume",
+  "toast.volume": "Volume: {value}%",
+  "settings.controlsHide": "Hide bottom bar",
+  "settings.seconds": "after {n} s",
+  "settings.neverHide": "Never"
 }

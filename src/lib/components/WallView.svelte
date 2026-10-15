@@ -19,6 +19,12 @@
   const AHEAD = 1;
   const GAP_PX = 14;
   const DEPTH_PX = 70;
+  /**
+   * Where a line that just became visible starts, before layout has measured
+   * it: well below the stack. Starting at the default (the center) made it
+   * slide down across the active line.
+   */
+  const ENTER_TRANSFORM = "translate3d(0, 45vh, 0)";
 
   const lines: Line[] = $derived(data.lines.filter((l) => l.text.trim() !== ""));
   const words: Word[][] = $derived(lines.map(wordTimings));
@@ -69,8 +75,9 @@
     let bottom = h(a) / 2;
     for (let d = 1; d <= AHEAD && a + d < lines.length; d++) {
       const i = a + d;
-      out[i] = `translate3d(0, ${bottom + GAP_PX}px, ${DEPTH_PX * 0.4}px)`;
-      bottom += GAP_PX + h(i);
+      // Same depth as the active line, so perspective can't push it into it.
+      out[i] = `translate3d(0, ${bottom + GAP_PX * 2}px, 0)`;
+      bottom += GAP_PX * 2 + h(i);
     }
     transforms = out;
   }
@@ -111,7 +118,7 @@
           class="line"
           class:active={d === 0}
           class:past={d < 0}
-          style:transform={transforms[i]}
+          style:transform={transforms[i] ?? ENTER_TRANSFORM}
           style:--age={Math.abs(d)}
           {@attach register(i)}
           role="button"
@@ -157,7 +164,7 @@
     color: var(--unfilled);
     opacity: calc(1 - var(--age) * 0.2);
     transition:
-      transform 620ms cubic-bezier(0.34, 1.25, 0.64, 1),
+      transform 620ms cubic-bezier(0.22, 1.08, 0.36, 1),
       opacity 500ms ease,
       color 500ms ease;
     cursor: pointer;
