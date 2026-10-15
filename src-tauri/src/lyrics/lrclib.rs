@@ -14,6 +14,8 @@ const BASE: &str = "https://lrclib.net/api";
 const MIN_SPACING: Duration = Duration::from_millis(1100);
 const MAX_RETRIES: u32 = 3;
 const MAX_RETRY_WAIT: Duration = Duration::from_secs(10);
+/// No real lyrics response comes close; anything bigger is junk or hostile.
+const MAX_BODY_BYTES: usize = 2 * 1024 * 1024;
 /// LRCLIB's own matching tolerance for search results.
 pub const DURATION_TOLERANCE_S: f64 = 3.0;
 
@@ -78,6 +80,10 @@ pub enum FetchError {
     Http(StatusCode),
     #[error("unexpected LRCLIB response: {0}")]
     Decode(reqwest::Error),
+    #[error("LRCLIB response is not valid JSON: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("LRCLIB response exceeds {MAX_BODY_BYTES} bytes")]
+    TooLarge,
 }
 
 pub struct Client {
@@ -87,14 +93,8 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Result<Self, reqwest::Error> {
-        // LRCLIB asks clients to identify themselves with a link.
-        let user_agent = format!(
-            "Sahne/{} ({})",
-            env!("CARGO_PKG_VERSION"),
-            env!("CARGO_PKG_REPOSITORY")
-        );
         let http = reqwest::Client::builder()
-            .user_agent(user_agent)
+            .user_agent(crate::net::user_agent())
             .timeout(Duration::from_secs(10))
             .connect_timeout(Duration::from_secs(5))
             .build()?;
@@ -146,7 +146,7 @@ impl Client {
             query.push(("album_name", album));
         }
         match self.request(endpoint, &query).await? {
-            Some(resp) => resp.json().await.map(Some).map_err(FetchError::Decode),
+            Some(resp) => read_json(resp).await.map(Some),
             None => Ok(None),
         }
     }
@@ -154,7 +154,7 @@ impl Client {
     pub async fn search(&self, artist: &str, title: &str) -> Result<Vec<Record>, FetchError> {
         let query = [("track_name", title), ("artist_name", artist)];
         match self.request("search", &query).await? {
-            Some(resp) => resp.json().await.map_err(FetchError::Decode),
+            Some(resp) => read_json(resp).await,
             None => Ok(Vec::new()),
         }
     }
@@ -212,6 +212,26 @@ impl Client {
         }
         *last = Some(Instant::now());
     }
+}
+
+/// Parses a JSON body read under [`MAX_BODY_BYTES`].
+async fn read_json<T: serde::de::DeserializeOwned>(
+    resp: reqwest::Response,
+) -> Result<T, FetchError> {
+    read_json_capped(resp, MAX_BODY_BYTES).await
+}
+
+async fn read_json_capped<T: serde::de::DeserializeOwned>(
+    resp: reqwest::Response,
+    max: usize,
+) -> Result<T, FetchError> {
+    let body = crate::net::read_capped(resp, max)
+        .await
+        .map_err(|e| match e {
+            crate::net::ReadError::TooLarge(_) => FetchError::TooLarge,
+            crate::net::ReadError::Http(e) => FetchError::Decode(e),
+        })?;
+    Ok(serde_json::from_slice(&body)?)
 }
 
 fn retry_after(resp: &reqwest::Response) -> Option<Duration> {
@@ -305,5 +325,25 @@ mod tests {
         let records = vec![rec(213.0, false, false)];
         assert!(pick_best(&records, 213.0).unwrap().instrumental);
         assert!(pick_best(&[rec(300.0, true, true)], 213.0).is_none());
+    }
+
+    // S9: an oversized body is refused instead of buffered and parsed.
+    #[tokio::test]
+    async fn oversized_body_is_refused() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let _ = sock.read(&mut buf).await;
+            let body = format!("[{}]", vec!["{}"; 4096].join(","));
+            let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", body.len());
+            let _ = sock.write_all(head.as_bytes()).await;
+            let _ = sock.write_all(body.as_bytes()).await;
+        });
+        let resp = reqwest::get(format!("http://{addr}/")).await.unwrap();
+        let got: Result<Vec<Record>, _> = read_json_capped(resp, 1024).await;
+        assert!(matches!(got, Err(FetchError::TooLarge)));
     }
 }
