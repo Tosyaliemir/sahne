@@ -100,7 +100,7 @@
 
   const word = $derived(current >= 0 ? flat[current] : null);
   const fontSize = $derived(
-    word ? `min(calc(clamp(4rem, 13vw, 13rem) * var(--lyrics-scale, 1)), calc(170vw / ${Math.max(4, [...word.text].length)}))` : "",
+    word ? `min(calc(clamp(4rem, 13cqw, 13rem) * var(--lyrics-scale, 1)), calc(170cqw / ${Math.max(4, [...word.text].length)}))` : "",
   );
 </script>
 
@@ -149,12 +149,12 @@
   }
   .context {
     position: absolute;
-    left: 8vw;
-    right: 8vw;
+    left: 8cqw;
+    right: 8cqw;
     bottom: 18%;
     margin: 0;
     text-align: center;
-    font-size: clamp(1rem, 1.8vw, 1.6rem);
+    font-size: clamp(1rem, 1.8cqw, 1.6rem);
     font-weight: 600;
     color: var(--text-dim);
   }

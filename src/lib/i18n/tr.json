@@ -76,5 +76,7 @@
   "toast.volume": "Ses: %{value}",
   "settings.controlsHide": "Alt çubuğu gizle",
   "settings.seconds": "{n} sn sonra",
-  "settings.neverHide": "Hiç gizleme"
+  "settings.neverHide": "Hiç gizleme",
+  "lyrics.expand": "Sözleri büyüt (L)",
+  "controls.showCover": "Kapağı göster (L)"
 }

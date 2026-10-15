@@ -43,6 +43,9 @@ class PlayerStore {
     try {
       const snap = await invoke<PlayerSnapshot>("get_state");
       if (!this.sawEvent) this.applySnapshot(snap);
+      // Volume is only emitted on connect and on change, so the early event
+      // is usually missed even when later position events arrived.
+      else if (this.volume === null) this.onVolume(snap.volume);
     } catch (err) {
       console.error("get_state failed", err);
     }

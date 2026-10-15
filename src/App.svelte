@@ -158,6 +158,10 @@
       case ",":
         openSettings();
         break;
+      case "l":
+      case "L":
+        ui.setLyricsFocus(!ui.lyricsFocus);
+        break;
       default:
         return;
     }
@@ -165,6 +169,12 @@
   }
 
   const data = $derived(lyrics.forTrack);
+
+  let coverFailed = $state(false);
+  $effect(() => {
+    void palette.artSrc;
+    coverFailed = false;
+  });
   const style = $derived(ui.effectiveStyle);
 </script>
 
@@ -187,7 +197,33 @@
       title={t("status.idle.title")}
       body={t("status.idle.body", { player: player.playerName ?? "" })}
     />
-  {:else if data?.state === "synced" && data.lines.length > 0}
+  {:else if (data?.state === "synced" && data.lines.length > 0) || (data?.state === "plain" && data.plain)}
+    <div class="layout" class:focus={ui.lyricsFocus}>
+      <aside class="side" aria-hidden={ui.lyricsFocus}>
+        <div class="cover">
+          {#if palette.artSrc && !coverFailed}
+            <img src={palette.artSrc} alt="" onerror={() => (coverFailed = true)} />
+          {:else}
+            <div class="placeholder">♪</div>
+          {/if}
+        </div>
+        <h1>{player.track.title}</h1>
+        <p class="artist">{player.track.artist}</p>
+      </aside>
+      <!-- In the split view a click anywhere on the lyrics enlarges them
+           instead of seeking; once enlarged, clicking a line seeks. -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <section
+        class="pane"
+        class:switching={ui.switching}
+        title={ui.lyricsFocus ? undefined : t("lyrics.expand")}
+        onclickcapture={(e) => {
+          if (ui.lyricsFocus) return;
+          e.stopPropagation();
+          ui.setLyricsFocus(true);
+        }}
+      >
+        {#if data.state === "synced"}
     {#key data.track_id}
       {#if style === "kinetik"}
         <KineticView {data} />
@@ -199,10 +235,13 @@
         <LyricsView {data} {style} />
       {/if}
     {/key}
-  {:else if data?.state === "plain" && data.plain}
+        {:else}
     {#key data.track_id}
-      <PlainLyrics text={data.plain} />
+      <PlainLyrics text={data.plain ?? ""} />
     {/key}
+        {/if}
+      </section>
+    </div>
   {:else if !data || data.state === "loading"}
     <TrackHero track={player.track} message={t("lyrics.loading")} />
   {:else if data.state === "instrumental"}
@@ -257,6 +296,97 @@
   }
   main.hide-cursor {
     cursor: none;
+  }
+  /* Split view: cover and title on the left, lyrics on the right. Focus
+     view: the lyrics pane takes the whole screen and the cover steps away. */
+  .layout {
+    position: absolute;
+    inset: 0;
+  }
+  .side {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 6vw;
+    width: min(34vw, 60vh);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-bottom: 8vh;
+    transition:
+      opacity 420ms ease,
+      transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+  }
+  .cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .placeholder {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    font-size: 6rem;
+    color: var(--text-dim);
+  }
+  .side h1 {
+    margin: 1.6rem 0 0;
+    font-size: clamp(1.6rem, 2.6vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .side .artist {
+    margin: 0.4rem 0 0;
+    font-size: clamp(1rem, 1.4vw, 1.4rem);
+    font-weight: 600;
+    opacity: 0.8;
+  }
+  .pane {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(6vw + min(34vw, 60vh) + 3vw);
+    right: 2vw;
+    container-type: size;
+    cursor: zoom-in;
+    transition: opacity 220ms ease;
+  }
+  .pane.switching {
+    opacity: 0;
+  }
+  .focus .side {
+    opacity: 0;
+    transform: translateX(-3vw) scale(0.94);
+    pointer-events: none;
+  }
+  .focus .pane {
+    left: 0;
+    right: 0;
+    cursor: auto;
+  }
+  /* The views' own hover states would suggest a seek that won't happen. */
+  .layout:not(.focus) .pane > :global(*) {
+    pointer-events: none;
+  }
+  @media (max-aspect-ratio: 1/1) {
+    .layout:not(.focus) .side {
+      display: none;
+    }
+    .layout:not(.focus) .pane {
+      left: 0;
+      right: 0;
+    }
   }
   .paused {
     position: fixed;

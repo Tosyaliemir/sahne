@@ -24,7 +24,7 @@
    * it: well below the stack. Starting at the default (the center) made it
    * slide down across the active line.
    */
-  const ENTER_TRANSFORM = "translate3d(0, 45vh, 0)";
+  const ENTER_TRANSFORM = "translate3d(0, 45cqh, 0)";
 
   const lines: Line[] = $derived(data.lines.filter((l) => l.text.trim() !== ""));
   const words: Word[][] = $derived(lines.map(wordTimings));
@@ -154,9 +154,9 @@
   .line {
     position: absolute;
     top: 60%;
-    left: 9vw;
-    right: 14vw;
-    font-size: calc(clamp(2rem, 4.8vw, 5.6rem) * var(--lyrics-scale, 1));
+    left: 9cqw;
+    right: 14cqw;
+    font-size: calc(clamp(2rem, 4.8cqw, 5.6rem) * var(--lyrics-scale, 1));
     font-weight: 800;
     line-height: 1.02;
     letter-spacing: -0.015em;

@@ -42,11 +42,20 @@
 >
   {#if player.track}
     <div class="track">
-      {#if palette.artSrc && !artFailed}
-        <img src={palette.artSrc} alt="" onerror={() => (artFailed = true)} />
-      {:else}
-        <div class="thumb-placeholder">♪</div>
-      {/if}
+      <button
+        class="thumb"
+        class:active={ui.lyricsFocus}
+        onclick={() => ui.setLyricsFocus(false)}
+        title={t("controls.showCover")}
+        aria-label={t("controls.showCover")}
+        disabled={!ui.lyricsFocus}
+      >
+        {#if palette.artSrc && !artFailed}
+          <img src={palette.artSrc} alt="" onerror={() => (artFailed = true)} />
+        {:else}
+          <div class="thumb-placeholder">♪</div>
+        {/if}
+      </button>
       <div class="meta">
         <span class="title">{player.track.title}</span>
         <span class="artist">{player.track.artist}</span>
@@ -117,8 +126,29 @@
     gap: 0.85rem;
     min-width: 0;
   }
+  .thumb {
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    cursor: default;
+    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease;
+  }
+  .thumb.active {
+    cursor: zoom-out;
+  }
+  .thumb.active:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
+  }
+  .thumb:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
   img,
   .thumb-placeholder {
+    display: block;
     width: 3.25rem;
     height: 3.25rem;
     border-radius: 8px;

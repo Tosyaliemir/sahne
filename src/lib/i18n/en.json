@@ -76,5 +76,7 @@
   "toast.volume": "Volume: {value}%",
   "settings.controlsHide": "Hide bottom bar",
   "settings.seconds": "after {n} s",
-  "settings.neverHide": "Never"
+  "settings.neverHide": "Never",
+  "lyrics.expand": "Enlarge lyrics (L)",
+  "controls.showCover": "Show cover (L)"
 }

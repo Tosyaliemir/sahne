@@ -174,13 +174,13 @@
     overflow: hidden;
     --fill: var(--text);
     --unfilled: color-mix(in srgb, var(--text) 35%, transparent);
-    --line-size: calc(clamp(2.4rem, 5.6vw, 6.5rem) * var(--lyrics-scale, 1));
+    --line-size: calc(clamp(2.4rem, 5.6cqw, 6.5rem) * var(--lyrics-scale, 1));
   }
   .line {
     position: absolute;
     top: 50%;
-    left: 6vw;
-    right: 6vw;
+    left: 6cqw;
+    right: 6cqw;
     text-align: center;
     font-size: var(--line-size);
     font-weight: 800;

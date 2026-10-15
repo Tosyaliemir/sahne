@@ -34,10 +34,10 @@
     mask-image: linear-gradient(transparent, #000 20%, #000 80%, transparent);
   }
   .content {
-    padding: 35vh 10vw;
+    padding: 35cqh 10cqw;
     white-space: pre-wrap;
     text-align: center;
-    font-size: calc(clamp(1.4rem, 2.6vw, 2.6rem) * var(--lyrics-scale, 1));
+    font-size: calc(clamp(1.4rem, 2.6cqw, 2.6rem) * var(--lyrics-scale, 1));
     font-weight: 700;
     line-height: 1.5;
     will-change: transform;
