@@ -69,15 +69,19 @@
       <input type="range" min="0.6" max="1.6" step="0.05" value={s.font_scale}
         oninput={(e) => set("font_scale", +e.currentTarget.value)} />
     </label>
-    <div class="row">
+    <label class="row">
       <span>{t("settings.backdrop")}</span>
-      <div class="segmented" role="radiogroup">
-        {#each ["akiskan", "bulanik"] as const as b (b)}
-          <button role="radio" aria-checked={s.backdrop_style === b} class:on={s.backdrop_style === b}
-            onclick={() => set("backdrop_style", b)}>{t(`backdrop.${b}` as const)}</button>
+      <select value={s.backdrop_style}
+        onchange={(e) => set("backdrop_style", e.currentTarget.value as Settings["backdrop_style"])}>
+        {#each ["akiskan", "bulanik", "kapak", "renk"] as const as b (b)}
+          <option value={b}>{t(`backdrop.${b}` as const)}</option>
         {/each}
-      </div>
-    </div>
+      </select>
+    </label>
+    <label class="row check">
+      <span>{t("settings.edgeGlow")}</span>
+      <input type="checkbox" checked={s.edge_glow} onchange={(e) => set("edge_glow", e.currentTarget.checked)} />
+    </label>
     {#if s.backdrop_style === "bulanik"}
     <label class="row">
       <span>{t("settings.blur")} <em>{s.backdrop_blur}px</em></span>
@@ -256,27 +260,6 @@
     width: 1.1rem;
     height: 1.1rem;
     accent-color: var(--accent);
-  }
-  .segmented {
-    display: flex;
-    background: var(--hover);
-    border-radius: 8px;
-    padding: 2px;
-  }
-  .segmented button {
-    font: inherit;
-    font-size: 0.85rem;
-    color: var(--text-dim);
-    background: transparent;
-    border: 0;
-    border-radius: 6px;
-    padding: 0.3rem 0.6rem;
-    cursor: pointer;
-  }
-  .segmented button.on {
-    color: var(--c-dark-bg);
-    background: var(--text);
-    font-weight: 700;
   }
   .hint {
     margin: 0.3rem 0 0;

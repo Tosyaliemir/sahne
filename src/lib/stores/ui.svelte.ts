@@ -1,4 +1,4 @@
-export const STYLES = ["klasik", "kinetik", "sade", "dalga", "harman"] as const;
+export const STYLES = ["klasik", "kinetik", "sade", "dalga", "harman", "duvar"] as const;
 export type LyricsStyle = (typeof STYLES)[number];
 
 const reducedMotion =

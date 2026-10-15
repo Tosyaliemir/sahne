@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   start_fullscreen: false,
   language: "tr",
   backdrop_style: "akiskan",
+  edge_glow: false,
   screensaver_enabled: true,
   screensaver_minutes: 3,
   screensaver_keep_awake: false,

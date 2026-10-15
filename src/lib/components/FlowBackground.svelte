@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { palette } from "../stores/palette.svelte";
   import { ui } from "../stores/ui.svelte";
   import { settings } from "../stores/settings.svelte";
@@ -29,8 +30,14 @@
       gl_Position = vec4(aPos, 0.0, 1.0);
     }`;
 
+  // highp matters: with real 16-bit mediump (e.g. NVIDIA under WebKitGTK) the
+  // hash/noise math collapses and only part of the screen gets any pattern.
   const FRAG = `
+    #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+    #else
     precision mediump float;
+    #endif
     varying vec2 vUv;
     uniform sampler2D uArtA;
     uniform sampler2D uArtB;
@@ -102,14 +109,16 @@
                     fbm(p * 1.6 + 2.2 * q + vec2(8.3, 2.8) - t * 0.9));
 
       // Two copies of the cover, turning opposite ways at different scales.
-      vec2 a = rot(t * 0.9) * p * 0.85 + (r - 0.5) * 0.6;
-      vec2 b = rot(-t * 0.6 + 1.3) * p * 1.35 + (q - 0.5) * 0.5 + vec2(0.31, -0.17);
+      vec2 a = rot(t * 0.9) * p * 0.85 + (r - 0.5) * 1.1;
+      vec2 b = rot(-t * 0.6 + 1.3) * p * 1.35 + (q - 0.5) * 0.9 + vec2(0.31, -0.17);
       a.x /= aspect;
       b.x /= aspect;
       vec3 cover = mix(art(a + 0.5), art(b + 0.5), smoothstep(0.3, 0.7, r.x));
 
       vec3 amb = ambient(fbm(p * 0.9 + r * 1.4 + t * 0.4) * 1.6 + t * 0.15);
       vec3 col = mix(amb, cover, 0.62 * uHasArt);
+      // Mostly-black covers would leave a dead backdrop; let the palette glow through.
+      col = max(col, amb * 0.42);
 
       // A little extra saturation; then tame highlights and deepen toward the
       // background color so light lyrics always stay readable on top.
@@ -124,17 +133,35 @@
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }`;
 
+  function report(message: string) {
+    invoke("frontend_log", { level: "info", message }).catch(() => {});
+  }
+
   function hexToRgb(hex: string): [number, number, number] {
     const v = parseInt(hex.replace("#", ""), 16);
     return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
   }
 
   onMount(() => {
+    // Size the canvas before creating the context.
+    const renderSize = () => {
+      const w = Math.min(MAX_WIDTH, Math.round(window.innerWidth * RENDER_SCALE));
+      const h = Math.max(1, Math.round((w * window.innerHeight) / Math.max(1, window.innerWidth)));
+      return [w, h] as const;
+    };
+    if (canvas) [canvas.width, canvas.height] = renderSize();
     const gl = canvas?.getContext("webgl", { antialias: false, alpha: false, preserveDrawingBuffer: false });
     if (!canvas || !gl) {
+      console.warn("flow backdrop: WebGL is not available, falling back to the blurred backdrop");
       onUnsupported();
       return;
     }
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+    report(
+      `flow backdrop: WebGL ${gl.getParameter(gl.VERSION)} on ${
+        dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)
+      }`,
+    );
 
     const compile = (type: number, src: string) => {
       const sh = gl.createShader(type)!;
@@ -227,8 +254,10 @@
         front = back;
         fadeStart = performance.now();
         hasArtTarget = 1;
+        const err = gl.getError();
+        if (err !== gl.NO_ERROR) console.warn("flow backdrop: GL error after texture upload", err);
       };
-      img.onerror = () => console.warn("flow backdrop: artwork failed to load");
+      img.onerror = () => console.warn("flow backdrop: artwork failed to load", src);
       img.src = src;
     };
 
@@ -239,12 +268,10 @@
     let first = true;
 
     const resize = () => {
-      const w = Math.min(MAX_WIDTH, Math.round(window.innerWidth * RENDER_SCALE));
-      const h = Math.max(1, Math.round((w * window.innerHeight) / Math.max(1, window.innerWidth)));
+      const [w, h] = renderSize();
       if (canvas!.width !== w || canvas!.height !== h) {
         canvas!.width = w;
         canvas!.height = h;
-        gl.viewport(0, 0, w, h);
       }
     };
     resize();
@@ -255,7 +282,7 @@
     });
 
     let last = performance.now();
-    let time = Math.random() * 1000;
+    let time = Math.random() * 60;
     let raf = requestAnimationFrame(function frame(now) {
       const dt = Math.min(100, now - last);
       last = now;
@@ -283,10 +310,14 @@
         if (f >= 1) fadeStart = -1;
       }
 
+      // Use the real drawing-buffer size, which may differ from the canvas size.
+      const bw = gl.drawingBufferWidth;
+      const bh = gl.drawingBufferHeight;
+      gl.viewport(0, 0, bw, bh);
       gl.uniform1f(uMix, mix);
       gl.uniform1f(uHasArt, hasArt);
       gl.uniform1f(uTime, time);
-      gl.uniform2f(uRes, canvas!.width, canvas!.height);
+      gl.uniform2f(uRes, bw, bh);
       gl.uniform3fv(uAmb, amb);
       gl.uniform3f(uBg, bg[0], bg[1], bg[2]);
       gl.uniform1f(uDim, dim);

@@ -16,6 +16,8 @@
   import LyricsView from "./lib/components/LyricsView.svelte";
   import KineticView from "./lib/components/KineticView.svelte";
   import HarmanView from "./lib/components/HarmanView.svelte";
+  import WallView from "./lib/components/WallView.svelte";
+  import EdgeGlow from "./lib/components/EdgeGlow.svelte";
   import PlainLyrics from "./lib/components/PlainLyrics.svelte";
   import TrackHero from "./lib/components/TrackHero.svelte";
   import ControlBar from "./lib/components/ControlBar.svelte";
@@ -162,7 +164,10 @@
 {#if settings.current.backdrop_style === "akiskan" && !flowUnsupported}
   <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
 {:else}
-  <Background />
+  <Background mode={settings.current.backdrop_style === "akiskan" ? "bulanik" : settings.current.backdrop_style} />
+{/if}
+{#if settings.current.edge_glow && player.track}
+  <EdgeGlow />
 {/if}
 
 <main class:hide-cursor={!ui.controlsVisible}>
@@ -179,6 +184,8 @@
         <KineticView {data} />
       {:else if style === "harman"}
         <HarmanView {data} />
+      {:else if style === "duvar"}
+        <WallView {data} />
       {:else}
         <LyricsView {data} {style} />
       {/if}

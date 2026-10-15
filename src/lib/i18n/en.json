@@ -65,5 +65,10 @@
   "settings.screensaverAfter": "After",
   "settings.minutes": "{n} min",
   "settings.keepAwake": "Keep the screen on while the screensaver shows",
-  "settings.screensaverHint": "Only while music plays; move the mouse or press a key and the windows go back to how they were. Keeping the screen on also delays the system lock screen."
+  "settings.screensaverHint": "Only while music plays; move the mouse or press a key and the windows go back to how they were. Keeping the screen on also delays the system lock screen.",
+  "style.duvar": "Wall",
+  "styleHint.duvar": "Recent lines stack into a wall of big type that sways gently in 3D.",
+  "backdrop.kapak": "Original cover",
+  "backdrop.renk": "Color",
+  "settings.edgeGlow": "Edge light (colors flowing along the edges)"
 }

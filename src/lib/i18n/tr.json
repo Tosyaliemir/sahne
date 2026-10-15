@@ -65,5 +65,10 @@
   "settings.screensaverAfter": "Süre",
   "settings.minutes": "{n} dk",
   "settings.keepAwake": "Ekran koruyucu açıkken ekranın kapanmasını engelle",
-  "settings.screensaverHint": "Yalnızca müzik çalarken devreye girer; fareyi oynatınca ya da bir tuşa basınca pencereler eski hâline döner. Ekranı açık tutmak, sistemin ekran kilidini de geciktirir."
+  "settings.screensaverHint": "Yalnızca müzik çalarken devreye girer; fareyi oynatınca ya da bir tuşa basınca pencereler eski hâline döner. Ekranı açık tutmak, sistemin ekran kilidini de geciktirir.",
+  "style.duvar": "Duvar",
+  "styleHint.duvar": "Son satırlar büyük harflerle üst üste dizilip 3B'de hafifçe salınan bir duvar oluşturur.",
+  "backdrop.kapak": "Orijinal kapak",
+  "backdrop.renk": "Renk",
+  "settings.edgeGlow": "Kenar ışığı (kenarlarda akan renkler)"
 }

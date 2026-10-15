@@ -17,6 +17,8 @@ pub enum LyricsStyle {
     Dalga,
     /// Classic, switching to kinetic for fast passages.
     Harman,
+    /// Recent lines stacked into a wall that drifts in 3D.
+    Duvar,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +28,10 @@ pub enum BackdropStyle {
     Akiskan,
     /// Pre-blurred artwork with drifting color fields.
     Bulanik,
+    /// The sharp, original cover, slowly zooming, darkened for readability.
+    Kapak,
+    /// A calm gradient made from the cover's colors.
+    Renk,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +70,8 @@ pub struct Settings {
     pub start_fullscreen: bool,
     pub language: Language,
     pub backdrop_style: BackdropStyle,
+    /// Light flowing along the screen edges in the cover's colors.
+    pub edge_glow: bool,
     /// Go fullscreen when the computer has been idle this long while music plays.
     pub screensaver_enabled: bool,
     pub screensaver_minutes: u32,
@@ -86,6 +94,7 @@ impl Default for Settings {
             start_fullscreen: false,
             language: Language::Tr,
             backdrop_style: BackdropStyle::Akiskan,
+            edge_glow: false,
             screensaver_enabled: true,
             screensaver_minutes: 3,
             screensaver_keep_awake: false,

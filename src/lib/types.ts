@@ -84,7 +84,7 @@ export interface PaletteChanged {
   palette: Palette;
 }
 
-export type LyricsStyleSetting = "klasik" | "kinetik" | "sade" | "dalga" | "harman";
+export type LyricsStyleSetting = "klasik" | "kinetik" | "sade" | "dalga" | "harman" | "duvar";
 
 export interface Settings {
   preferred_player: string | null;
@@ -97,7 +97,8 @@ export interface Settings {
   mini_position: [number, number] | null;
   start_fullscreen: boolean;
   language: "tr" | "en";
-  backdrop_style: "akiskan" | "bulanik";
+  backdrop_style: "akiskan" | "bulanik" | "kapak" | "renk";
+  edge_glow: boolean;
   screensaver_enabled: boolean;
   screensaver_minutes: number;
   screensaver_keep_awake: boolean;

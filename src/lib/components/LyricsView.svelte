@@ -3,14 +3,8 @@
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
   import { lyrics } from "../stores/lyrics.svelte";
-  import {
-    activeLineIndex,
-    activeWordIndex,
-    INTERLUDE_MIN_MS,
-    lyricTime,
-    wordProgress,
-    wordTimings,
-  } from "../timing";
+  import { activeLineIndex, INTERLUDE_MIN_MS, lyricTime, wordTimings } from "../timing";
+  import { LineFiller } from "../wordFill";
   import Interlude from "./Interlude.svelte";
   import FillWord from "./FillWord.svelte";
 
@@ -104,56 +98,25 @@
   });
 
   // Per-frame work: only the active line's word fills and the interlude dots.
-  let lastProgress: number[] = [];
-  let lastSinging = -1;
+  const filler = new LineFiller();
 
   function frame(now: number) {
     const t = lyricTime(player.clock.position(now), lyrics.totalOffsetMs);
     const idx = activeLineIndex(lines, t);
     if (idx !== active) {
-      resetLine(active);
+      filler.reset(wordEls[active]);
       active = idx;
-      lastProgress = [];
-      lastSinging = -1;
     }
     if (idx < 0) return;
 
-    const els = wordEls[idx];
-    const ws = words[idx];
-    if (els && ws) {
-      for (let j = 0; j < ws.length; j++) {
-        const el = els[j];
-        if (!el) continue;
-        const p = Math.round(wordProgress(ws[j], t) * 1000) / 1000;
-        if (p !== lastProgress[j]) {
-          // Drives two transforms only (see FillWord): no repaint per frame.
-          el.style.setProperty("--p", String(p));
-          if (p > 0 && !(lastProgress[j] > 0)) el.classList.add("on");
-          if (p >= 1 && !(lastProgress[j] >= 1)) el.classList.add("done");
-          lastProgress[j] = p;
-        }
-      }
-      const aw = activeWordIndex(ws, t);
-      const singing = aw >= 0 && t < ws[aw].end_ms ? aw : -1;
-      if (singing !== lastSinging) {
-        if (lastSinging >= 0) els[lastSinging]?.classList.remove("glow");
-        if (singing >= 0) els[singing]?.classList.add("glow");
-        lastSinging = singing;
-      }
-    }
+    // Drives two transforms per word only (see FillWord): no repaint per frame.
+    filler.update(wordEls[idx], words[idx] ?? [], t);
 
     const dots = dotsEls[idx];
     if (dots) {
       const l = lines[idx];
       const progress = Math.min(1, Math.max(0, (t - l.start_ms) / (l.end_ms - l.start_ms)));
       dots.style.setProperty("--progress", progress.toFixed(3));
-    }
-  }
-
-  function resetLine(i: number) {
-    for (const el of wordEls[i] ?? []) {
-      el?.style.removeProperty("--p");
-      el?.classList.remove("on", "done", "glow");
     }
   }
 
