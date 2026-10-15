@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Sahne: a spotlight falling on a stage. Warm palette, deliberately no green. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1640"/>
+      <stop offset="1" stop-color="#120a1c"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd66b" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ff7a59" stop-opacity="0.25"/>
+    </linearGradient>
+    <radialGradient id="pool" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe7a3"/>
+      <stop offset="0.6" stop-color="#ff9a62" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ff5f7e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <!-- curtains -->
+  <path d="M64 264 Q64 64 264 64 L330 64 Q300 380 200 560 Q130 690 64 720 Z" fill="#c2365e"/>
+  <path d="M960 264 Q960 64 760 64 L694 64 Q724 380 824 560 Q894 690 960 720 Z" fill="#c2365e"/>
+  <!-- beam -->
+  <path d="M470 150 L554 150 L720 700 L304 700 Z" fill="url(#beam)"/>
+  <!-- lamp -->
+  <rect x="448" y="112" width="128" height="64" rx="24" fill="#ffd66b"/>
+  <!-- light pool on stage -->
+  <ellipse cx="512" cy="712" rx="250" ry="70" fill="url(#pool)"/>
+  <!-- stage edge -->
+  <path d="M120 790 Q512 730 904 790 L904 840 Q512 780 120 840 Z" fill="#ffb36b"/>
+</svg>

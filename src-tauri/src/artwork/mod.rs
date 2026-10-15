@@ -20,6 +20,8 @@ const MAX_ART_BYTES: usize = 15 * 1024 * 1024;
 /// Side of the pre-blurred background; the UI scales it up, which smooths it further.
 const BG_SIZE: u32 = 72;
 const BG_SIGMA: f32 = 5.0;
+/// While offline, try the download again this often (as long as the track plays).
+const OFFLINE_RETRY: Duration = Duration::from_secs(20);
 
 #[derive(Debug, thiserror::Error)]
 enum ArtError {
@@ -96,31 +98,42 @@ impl ArtworkService {
     }
 
     async fn load(&self, app: &AppHandle, generation: u64, track: TrackInfo) {
-        let result = match &track.art_url {
-            Some(url) => self.prepare(url).await.map(Some),
-            None => Ok(None),
-        };
-        let payload = match result {
-            Ok(Some((art, background, palette))) => PaletteChanged {
-                track_id: track.id.clone(),
-                art_path: Some(art),
-                background_path: Some(background),
-                palette,
-            },
-            Ok(None) => PaletteChanged::empty(&track.id),
-            Err(e) => {
-                tracing::warn!("artwork for {}: {e}", track.title);
-                PaletteChanged::empty(&track.id)
+        loop {
+            let result = match &track.art_url {
+                Some(url) => self.prepare(url).await.map(Some),
+                None => Ok(None),
+            };
+            // Network trouble (not an HTTP error status) is worth retrying later.
+            let offline = matches!(&result, Err(ArtError::Http(e)) if !e.is_status());
+            let payload = match result {
+                Ok(Some((art, background, palette))) => PaletteChanged {
+                    track_id: track.id.clone(),
+                    art_path: Some(art),
+                    background_path: Some(background),
+                    palette,
+                },
+                Ok(None) => PaletteChanged::empty(&track.id),
+                Err(e) => {
+                    tracing::warn!("artwork for {}: {e}", track.title);
+                    PaletteChanged::empty(&track.id)
+                }
+            };
+            if self.generation.load(Ordering::SeqCst) != generation {
+                return;
             }
-        };
-        if self.generation.load(Ordering::SeqCst) != generation {
-            return;
-        }
-        *lock(&self.current) = Some(payload.clone());
-        self.palette_tx.send_replace(payload.palette.clone());
-        tracing::debug!("palette for {}: {:?}", track.title, payload.palette);
-        if let Err(e) = app.emit(events::PALETTE_CHANGED, payload) {
-            tracing::warn!("failed to emit palette: {e}");
+            *lock(&self.current) = Some(payload.clone());
+            self.palette_tx.send_replace(payload.palette.clone());
+            tracing::debug!("palette for {}: {:?}", track.title, payload.palette);
+            if let Err(e) = app.emit(events::PALETTE_CHANGED, payload) {
+                tracing::warn!("failed to emit palette: {e}");
+            }
+            if !offline {
+                return;
+            }
+            tokio::time::sleep(OFFLINE_RETRY).await;
+            if self.generation.load(Ordering::SeqCst) != generation {
+                return;
+            }
         }
     }
 
