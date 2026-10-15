@@ -22,10 +22,7 @@ const MAX_ART_BYTES: usize = 15 * 1024 * 1024;
 const BG_SIZE: u32 = 192;
 const BG_SIGMA: f32 = 9.0;
 /// While offline, try the download again this often (as long as the track plays).
-/// Retry delays after a network failure: quick at first (usually a blip),
-/// then settling at the maximum.
-const OFFLINE_RETRY_MIN: Duration = Duration::from_secs(1);
-const OFFLINE_RETRY_MAX: Duration = Duration::from_secs(20);
+const OFFLINE_RETRY: Duration = Duration::from_secs(20);
 
 #[derive(Debug, thiserror::Error)]
 enum ArtError {
@@ -54,9 +51,6 @@ impl ArtworkService {
     pub fn new(paths: &Paths) -> Self {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))
-            // Covers come from the same CDN track after track; reuse the connection.
-            .pool_idle_timeout(Duration::from_secs(600))
-            .tcp_keepalive(Duration::from_secs(60))
             .build()
             .map_err(|e| tracing::error!("HTTP client unavailable: {e}"))
             .ok();
@@ -98,8 +92,6 @@ impl ArtworkService {
     }
 
     async fn load(&self, app: &AppHandle, generation: u64, track: TrackInfo) {
-        let mut retry = OFFLINE_RETRY_MIN;
-        let mut failures = 0u32;
         loop {
             let result = match &track.art_url {
                 Some(url) => self.prepare(url).await.map(Some),
@@ -123,19 +115,6 @@ impl ArtworkService {
             if self.generation.load(Ordering::SeqCst) != generation {
                 return;
             }
-            // A first network blip is retried before giving up on the colors,
-            // so the screen doesn't flash gray for a moment.
-            if offline {
-                failures += 1;
-            }
-            if offline && failures == 1 {
-                tokio::time::sleep(retry).await;
-                retry = (retry * 2).min(OFFLINE_RETRY_MAX);
-                if self.generation.load(Ordering::SeqCst) != generation {
-                    return;
-                }
-                continue;
-            }
             *lock(&self.current) = Some(payload.clone());
             tracing::debug!("palette for {}: {:?}", track.title, payload.palette);
             if let Err(e) = app.emit(events::PALETTE_CHANGED, payload) {
@@ -144,8 +123,7 @@ impl ArtworkService {
             if !offline {
                 return;
             }
-            tokio::time::sleep(retry).await;
-            retry = (retry * 2).min(OFFLINE_RETRY_MAX);
+            tokio::time::sleep(OFFLINE_RETRY).await;
             if self.generation.load(Ordering::SeqCst) != generation {
                 return;
             }
