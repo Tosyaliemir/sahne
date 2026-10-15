@@ -1,3 +1,11 @@
+/* Manrope (SIL OFL 1.1, see assets/fonts/OFL.txt): variable weight, full Turkish coverage. */
+@font-face {
+  font-family: "Manrope";
+  src: url("./assets/fonts/Manrope.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: block;
+}
+
 /* Palette roles, set from the album art. Registering them as <color> lets
    them transition smoothly when the track changes. */
 @property --c-dominant { syntax: "<color>"; inherits: true; initial-value: #5c5c66; }
@@ -40,6 +48,10 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--bg);
   user-select: none;
+}
+/* Only the root gets a background: a body background would paint over the
+   z-index:-1 backdrop layer. */
+body {
+  background: transparent;
 }

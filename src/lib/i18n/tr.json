@@ -17,5 +17,14 @@
   "lyrics.offline": "Çevrimdışı — bağlantı gelince sözler yeniden aranacak",
   "lyrics.error": "Sözler alınamadı",
   "lyrics.retry": "Yeniden dene",
-  "lyrics.offset": "Söz kaydırma: {value} ms"
+  "lyrics.offset": "Söz kaydırma: {value} ms",
+  "controls.style": "Animasyon stili (S)",
+  "controls.mini": "Mini mod (M)",
+  "controls.fullscreen": "Tam ekran (F)",
+  "controls.settings": "Ayarlar (,)",
+  "style.klasik": "Klasik",
+  "style.kinetik": "Kinetik",
+  "style.sade": "Sade",
+  "toast.style": "Stil: {name}",
+  "status.pausedBody": "Devam etmek için boşluk tuşuna bas."
 }

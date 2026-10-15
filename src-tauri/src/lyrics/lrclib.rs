@@ -30,17 +30,38 @@ pub struct Record {
     pub synced_lyrics: Option<String>,
 }
 
+/// LRCLIB is crowd-sourced and has junk entries (e.g. a single `[00:00.00]probe`
+/// line under a famous song's name). Real lyrics have more than a few lines.
+const MIN_LYRIC_LINES: usize = 4;
+
+fn plausible_synced(s: &str) -> bool {
+    let sung = s
+        .lines()
+        .filter(|l| {
+            // Text after the leading [..] tags.
+            let text = l.trim().rsplit(']').next().unwrap_or("");
+            !text.trim().is_empty()
+        })
+        .count();
+    sung >= MIN_LYRIC_LINES
+}
+
+fn plausible_plain(s: &str) -> bool {
+    s.lines().filter(|l| !l.trim().is_empty()).count() >= MIN_LYRIC_LINES
+}
+
 impl Record {
     pub fn has_synced(&self) -> bool {
-        self.synced_lyrics
-            .as_deref()
-            .is_some_and(|s| !s.trim().is_empty())
+        self.synced_lyrics.as_deref().is_some_and(plausible_synced)
     }
 
     pub fn has_plain(&self) -> bool {
-        self.plain_lyrics
-            .as_deref()
-            .is_some_and(|s| !s.trim().is_empty())
+        self.plain_lyrics.as_deref().is_some_and(plausible_plain)
+    }
+
+    /// Anything worth showing: lyrics or an explicit instrumental flag.
+    pub fn is_useful(&self) -> bool {
+        self.has_synced() || self.has_plain() || self.instrumental
     }
 }
 
@@ -49,8 +70,9 @@ pub enum FetchError {
     /// Could not reach the server at all: treat as offline.
     #[error("network unavailable: {0}")]
     Offline(reqwest::Error),
-    #[error("LRCLIB keeps rate limiting us")]
-    RateLimited,
+    /// Rate limited (429) or server trouble (5xx) beyond our retries; transient.
+    #[error("LRCLIB is busy or unavailable")]
+    Busy,
     #[error("LRCLIB error: {0}")]
     Http(StatusCode),
     #[error("unexpected LRCLIB response: {0}")]
@@ -129,18 +151,22 @@ impl Client {
             match resp.status() {
                 s if s.is_success() => return Ok(Some(resp)),
                 StatusCode::NOT_FOUND => return Ok(None),
-                StatusCode::TOO_MANY_REQUESTS if attempt < MAX_RETRIES => {
+                s if (s == StatusCode::TOO_MANY_REQUESTS || s.is_server_error())
+                    && attempt < MAX_RETRIES =>
+                {
                     // Retry-After is often 1 s, which just earns another 429; back off harder.
                     let backoff = Duration::from_secs(2 << attempt);
                     let wait = retry_after(&resp).map_or(backoff, |r| r.max(backoff));
-                    tracing::debug!("LRCLIB 429, retrying in {wait:?}");
+                    tracing::debug!("LRCLIB {s}, retrying in {wait:?}");
                     tokio::time::sleep(wait.min(MAX_RETRY_WAIT)).await;
                 }
-                StatusCode::TOO_MANY_REQUESTS => return Err(FetchError::RateLimited),
+                s if s == StatusCode::TOO_MANY_REQUESTS || s.is_server_error() => {
+                    return Err(FetchError::Busy)
+                }
                 s => return Err(FetchError::Http(s)),
             }
         }
-        Err(FetchError::RateLimited)
+        Err(FetchError::Busy)
     }
 
     async fn wait_turn(&self) {
@@ -197,16 +223,29 @@ mod tests {
             artist_name: "a".into(),
             duration: Some(duration),
             instrumental: !synced && !plain,
-            plain_lyrics: plain.then(|| "p".into()),
-            synced_lyrics: synced.then(|| "[00:01.00]s".into()),
+            plain_lyrics: plain.then(|| "a\nb\nc\nd".into()),
+            synced_lyrics: synced
+                .then(|| "[00:01.00]a\n[00:02.00]b\n[00:03.00]c\n[00:04.00]d".into()),
         }
+    }
+
+    #[test]
+    fn rejects_junk_entries() {
+        let mut r = rec(213.0, true, true);
+        r.synced_lyrics = Some("[00:00.00]probe".into());
+        r.plain_lyrics = Some("probe".into());
+        assert!(!r.has_synced() && !r.has_plain() && !r.is_useful());
+        // Blank stamped lines don't count as lyrics.
+        r.synced_lyrics = Some("[00:01.00]a\n[00:02.00]\n[00:03.00] \n[00:04.00]b".into());
+        assert!(!r.has_synced());
     }
 
     #[test]
     fn decodes_lrclib_json() {
         let json = r#"{"id":1,"name":"x","trackName":"Never Gonna Give You Up","artistName":"Rick Astley",
             "albumName":"Whenever You Need Somebody","duration":213.0,"instrumental":false,"hasWordSync":false,
-            "plainLyrics":"We're no strangers","syncedLyrics":"[00:18.68] We're no strangers"}"#;
+            "plainLyrics":"We're no strangers\nto love\nyou know\nthe rules",
+            "syncedLyrics":"[00:18.68] We're no strangers\n[00:20.00]to love\n[00:22.84]You know\n[00:24.00]the rules"}"#;
         let r: Record = serde_json::from_str(json).unwrap();
         assert_eq!(r.duration, Some(213.0));
         assert!(r.has_synced() && r.has_plain());

@@ -17,5 +17,14 @@
   "lyrics.offline": "Offline — lyrics will be fetched once you're back online",
   "lyrics.error": "Couldn't load lyrics",
   "lyrics.retry": "Try again",
-  "lyrics.offset": "Lyrics offset: {value} ms"
+  "lyrics.offset": "Lyrics offset: {value} ms",
+  "controls.style": "Animation style (S)",
+  "controls.mini": "Mini mode (M)",
+  "controls.fullscreen": "Fullscreen (F)",
+  "controls.settings": "Settings (,)",
+  "style.klasik": "Classic",
+  "style.kinetik": "Kinetic",
+  "style.sade": "Minimal",
+  "toast.style": "Style: {name}",
+  "status.pausedBody": "Press space to resume."
 }

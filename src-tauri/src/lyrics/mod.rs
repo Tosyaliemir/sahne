@@ -22,14 +22,19 @@ use lrclib::{FetchError, Record};
 /// Negative results are retried after a day; positive ones are kept forever.
 const NOT_FOUND_TTL_S: u64 = 24 * 60 * 60;
 const OFFLINE_RETRY: Duration = Duration::from_secs(20);
-/// After LRCLIB's rate limit outlasts our in-request retries, wait this long
+/// When LRCLIB stays busy (429/5xx) beyond our in-request retries, wait this long
 /// (doubling, capped) and try again while the track is still playing.
 const RATE_LIMIT_RETRY: Duration = Duration::from_secs(15);
 const RATE_LIMIT_RETRY_MAX: Duration = Duration::from_secs(120);
 
+/// Bumped whenever lookup rules change so stale (possibly junk) entries are refetched.
+const CACHE_VERSION: u32 = 2;
+
 /// What we cache per track: the raw LRCLIB fields, or `None` for "not found".
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CacheEntry {
+    #[serde(default)]
+    version: u32,
     fetched_at: u64,
     found: Option<Found>,
 }
@@ -172,9 +177,9 @@ impl LyricsService {
                             return;
                         }
                     }
-                    Err(FetchError::RateLimited) => {
+                    Err(FetchError::Busy) => {
                         // Stay in "loading" rather than showing an error for a transient condition.
-                        tracing::info!("LRCLIB rate limit; retrying in {rate_limit_wait:?}");
+                        tracing::info!("LRCLIB busy; retrying in {rate_limit_wait:?}");
                         tokio::time::sleep(rate_limit_wait).await;
                         rate_limit_wait = (rate_limit_wait * 2).min(RATE_LIMIT_RETRY_MAX);
                         if this.generation.load(Ordering::SeqCst) != generation {
@@ -252,10 +257,11 @@ impl LyricsService {
     /// Cache first, then LRCLIB. `Ok(None)` means there are no lyrics.
     async fn resolve(&self, track: &TrackInfo) -> Result<Option<Found>, FetchError> {
         let path = self.cache_path(track);
+        // Entries from older lookup rules may hold junk; refetch those.
         if let Ok(entry) = paths::read_json::<CacheEntry>(&path) {
             let fresh = entry.found.is_some()
                 || paths::unix_now().saturating_sub(entry.fetched_at) < NOT_FOUND_TTL_S;
-            if fresh {
+            if entry.version == CACHE_VERSION && fresh {
                 tracing::debug!("lyrics cache hit for {}", track.title);
                 return Ok(entry.found);
             }
@@ -265,6 +271,7 @@ impl LyricsService {
         };
         let found = fetch(client, track).await?;
         let entry = CacheEntry {
+            version: CACHE_VERSION,
             fetched_at: paths::unix_now(),
             found: found.clone(),
         };
@@ -293,7 +300,9 @@ async fn fetch(client: &lrclib::Client, track: &TrackInfo) -> Result<Option<Foun
             if record.has_synced() {
                 return Ok(Some(Found::from(&record)));
             }
-            fallback.get_or_insert_with(|| Found::from(&record));
+            if record.is_useful() {
+                fallback.get_or_insert_with(|| Found::from(&record));
+            }
         }
     }
 

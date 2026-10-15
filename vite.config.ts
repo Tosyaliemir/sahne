@@ -3,8 +3,11 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 const host = process.env.TAURI_DEV_HOST;
 
-export default defineConfig({
-  plugins: [svelte()],
+export default defineConfig(({ command }) => ({
+  // In dev, Vite 8 serves the raw .svelte source for the plugin's virtual
+  // `?svelte&type=style` modules, so scoped styles break. Injecting CSS from JS
+  // avoids those modules; production builds still extract a stylesheet.
+  plugins: [svelte({ emitCss: command === "build" })],
   // Keep Rust compiler errors visible in `tauri dev`.
   clearScreen: false,
   server: {
@@ -20,4 +23,4 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
   },
-});
+}));

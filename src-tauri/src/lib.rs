@@ -7,7 +7,7 @@ mod player;
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use artwork::ArtworkService;
 use error::AppResult;
@@ -118,6 +118,12 @@ pub fn run() {
         .manage(lyrics.clone())
         .manage(artwork.clone())
         .setup(move |app| {
+            // Development aid: tell test instances apart from the everyday one.
+            if let (Ok(title), Some(window)) =
+                (std::env::var("SAHNE_TITLE"), app.get_webview_window("main"))
+            {
+                let _ = window.set_title(&title);
+            }
             let handle = app.handle().clone();
             lyrics.spawn(handle.clone(), player.subscribe_tracks());
             artwork.spawn(handle.clone(), player.subscribe_tracks());

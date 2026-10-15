@@ -1,4 +1,4 @@
-import type { Line } from "./types";
+import type { Line, Word } from "./types";
 
 /**
  * Index of the line being sung at `t` (ms, lyric time), or -1 before the
@@ -23,4 +23,76 @@ export function activeLineIndex(lines: readonly Line[], t: number): number {
 /** Converts playback position to lyric time using the user's offset. */
 export function lyricTime(positionMs: number, offsetMs: number): number {
   return positionMs - offsetMs;
+}
+
+/**
+ * Upper bound on how long one character is sung. A line followed by a long
+ * pause would otherwise stretch its words across the silence.
+ */
+export const MAX_MS_PER_CHAR = 180;
+/** Minimum singing time for a line, so very short lines still animate. */
+export const MIN_LINE_SING_MS = 600;
+/** Gaps at least this long show the interlude indicator. */
+export const INTERLUDE_MIN_MS = 5000;
+
+/**
+ * Word timings for a line: the real ones from Enhanced LRC, or the line's
+ * singing time split across words in proportion to their length.
+ */
+export function wordTimings(line: Line): Word[] {
+  if (line.words && line.words.length > 0) return line.words;
+  const texts = line.text.split(/\s+/).filter(Boolean);
+  if (texts.length === 0) return [];
+
+  // Each word also "owns" the gap after it, so short words still get time.
+  const weights = texts.map((w) => [...w].length + 1);
+  const total = weights.reduce((a, b) => a + b, 0);
+  const lineMs = Math.max(0, line.end_ms - line.start_ms);
+  const singMs = Math.min(lineMs, Math.max(MIN_LINE_SING_MS, total * MAX_MS_PER_CHAR));
+
+  const words: Word[] = [];
+  let t = line.start_ms;
+  texts.forEach((text, i) => {
+    const d = (singMs * weights[i]) / total;
+    words.push({ start_ms: Math.round(t), end_ms: Math.round(t + d), text });
+    t += d;
+  });
+  return words;
+}
+
+/** 0 before the word starts, 1 once it is over, linear in between. */
+export function wordProgress(word: Word, t: number): number {
+  if (t <= word.start_ms) return 0;
+  if (t >= word.end_ms) return 1;
+  return (t - word.start_ms) / (word.end_ms - word.start_ms);
+}
+
+/** Index of the word being sung (last started word), or -1. */
+export function activeWordIndex(words: readonly Word[], t: number): number {
+  let found = -1;
+  for (let i = 0; i < words.length && words[i].start_ms <= t; i++) found = i;
+  return found;
+}
+
+export interface Interlude {
+  start_ms: number;
+  end_ms: number;
+  /** 0..1 through the break. */
+  progress: number;
+}
+
+/**
+ * The instrumental break at `t`, if any: a long empty line, or a long intro
+ * before the first line.
+ */
+export function interludeAt(lines: readonly Line[], t: number): Interlude | null {
+  const make = (start: number, end: number): Interlude | null =>
+    end - start >= INTERLUDE_MIN_MS
+      ? { start_ms: start, end_ms: end, progress: Math.min(1, Math.max(0, (t - start) / (end - start))) }
+      : null;
+  if (lines.length === 0) return null;
+  const i = activeLineIndex(lines, t);
+  if (i === -1) return make(0, lines[0].start_ms);
+  const line = lines[i];
+  return line.text.trim() === "" ? make(line.start_ms, line.end_ms) : null;
 }
