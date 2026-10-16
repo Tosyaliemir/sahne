@@ -89,20 +89,46 @@ pub enum FetchError {
     TooLarge,
 }
 
+/// Request pacing; shortened in tests.
+#[derive(Debug, Clone, Copy)]
+struct Timing {
+    spacing: Duration,
+    /// First retry wait; doubles per attempt.
+    backoff: Duration,
+    /// Wait before retrying a failed connect once.
+    reconnect: Duration,
+    timeout: Duration,
+}
+
+const TIMING: Timing = Timing {
+    spacing: MIN_SPACING,
+    backoff: Duration::from_secs(1),
+    reconnect: Duration::from_millis(1500),
+    timeout: Duration::from_secs(10),
+};
+
 pub struct Client {
     http: reqwest::Client,
+    base: String,
+    timing: Timing,
     last_request: Mutex<Option<Instant>>,
 }
 
 impl Client {
     pub fn new() -> Result<Self, reqwest::Error> {
+        Self::with(BASE, TIMING)
+    }
+
+    fn with(base: &str, timing: Timing) -> Result<Self, reqwest::Error> {
         let http = reqwest::Client::builder()
             .user_agent(crate::net::user_agent())
-            .timeout(Duration::from_secs(10))
+            .timeout(timing.timeout)
             .connect_timeout(Duration::from_secs(5))
             .build()?;
         Ok(Self {
             http,
+            base: base.trim_end_matches('/').to_owned(),
+            timing,
             last_request: Mutex::new(None),
         })
     }
@@ -168,7 +194,7 @@ impl Client {
         endpoint: &str,
         query: &[(&str, &str)],
     ) -> Result<Option<reqwest::Response>, FetchError> {
-        let url = format!("{BASE}/{endpoint}");
+        let url = format!("{}/{endpoint}", self.base);
         for attempt in 0..=MAX_RETRIES {
             self.wait_turn().await;
             let resp = match self.http.get(&url).query(query).send().await {
@@ -176,7 +202,7 @@ impl Client {
                 // A single failed connect is often a blip; only a repeat means offline.
                 Err(e) if e.is_connect() && attempt == 0 => {
                     tracing::debug!("LRCLIB connect failed ({e}), retrying once");
-                    tokio::time::sleep(Duration::from_millis(1500)).await;
+                    tokio::time::sleep(self.timing.reconnect).await;
                     continue;
                 }
                 Err(e) if e.is_connect() => return Err(FetchError::Offline(e)),
@@ -191,7 +217,7 @@ impl Client {
                     && attempt < MAX_RETRIES =>
                 {
                     // Retry-After is often 1 s, which just earns another 429; back off harder.
-                    let backoff = Duration::from_secs(1 << attempt);
+                    let backoff = self.timing.backoff * (1 << attempt);
                     let wait = retry_after(&resp).map_or(backoff, |r| r.max(backoff));
                     tracing::debug!("LRCLIB {s}, retrying in {wait:?}");
                     tokio::time::sleep(wait.min(MAX_RETRY_WAIT)).await;
@@ -209,8 +235,8 @@ impl Client {
         let mut last = self.last_request.lock().await;
         if let Some(t) = *last {
             let since = t.elapsed();
-            if since < MIN_SPACING {
-                tokio::time::sleep(MIN_SPACING - since).await;
+            if since < self.timing.spacing {
+                tokio::time::sleep(self.timing.spacing - since).await;
             }
         }
         *last = Some(Instant::now());
@@ -348,5 +374,179 @@ mod tests {
         let resp = reqwest::get(format!("http://{addr}/")).await.unwrap();
         let got: Result<Vec<Record>, _> = read_json_capped(resp, 1024).await;
         assert!(matches!(got, Err(FetchError::TooLarge)));
+    }
+
+    // T3: the client against a mock LRCLIB.
+    mod http {
+        use super::super::*;
+        use wiremock::matchers::{method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        const FAST: Timing = Timing {
+            spacing: Duration::from_millis(5),
+            backoff: Duration::from_millis(20),
+            reconnect: Duration::from_millis(20),
+            timeout: Duration::from_millis(500),
+        };
+
+        fn record_json() -> serde_json::Value {
+            serde_json::json!({
+                "trackName": "Işıklı Günler", "artistName": "Örnek Sanatçı", "duration": 213.0,
+                "instrumental": false, "plainLyrics": "bir\niki\nüç\ndört",
+                "syncedLyrics": "[00:01.00]bir\n[00:02.00]iki\n[00:03.00]üç\n[00:04.00]dört"
+            })
+        }
+
+        async fn client(server: &MockServer) -> Client {
+            Client::with(&format!("{}/api", server.uri()), FAST).unwrap()
+        }
+
+        #[tokio::test]
+        async fn ok_returns_the_record() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/api/get"))
+                .and(query_param("track_name", "Işıklı Günler"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(record_json()))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let got = client(&server)
+                .await
+                .get("Örnek Sanatçı", "Işıklı Günler", "", 213)
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(got.has_synced() && got.has_plain());
+        }
+
+        #[tokio::test]
+        async fn not_found_is_none() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(404))
+                .mount(&server)
+                .await;
+            let got = client(&server).await.get("a", "b", "", 1).await.unwrap();
+            assert!(got.is_none());
+        }
+
+        #[tokio::test]
+        async fn too_many_requests_honours_retry_after() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(429).insert_header("retry-after", "1"))
+                .up_to_n_times(1)
+                .mount(&server)
+                .await;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(record_json()))
+                .mount(&server)
+                .await;
+            let started = Instant::now();
+            let got = client(&server).await.get("a", "b", "", 213).await.unwrap();
+            assert!(got.is_some());
+            assert!(
+                started.elapsed() >= Duration::from_secs(1),
+                "waited {:?}",
+                started.elapsed()
+            );
+            assert_eq!(server.received_requests().await.unwrap().len(), 2);
+        }
+
+        #[tokio::test]
+        async fn persistent_server_errors_are_busy() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(503))
+                .mount(&server)
+                .await;
+            let got = client(&server).await.get("a", "b", "", 1).await;
+            assert!(matches!(got, Err(FetchError::Busy)), "{got:?}");
+            assert_eq!(
+                server.received_requests().await.unwrap().len(),
+                MAX_RETRIES as usize + 1
+            );
+        }
+
+        #[tokio::test]
+        async fn other_statuses_are_http_errors() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(ResponseTemplate::new(400))
+                .mount(&server)
+                .await;
+            let got = client(&server).await.get("a", "b", "", 1).await;
+            assert!(
+                matches!(got, Err(FetchError::Http(StatusCode::BAD_REQUEST))),
+                "{got:?}"
+            );
+        }
+
+        #[tokio::test]
+        async fn slow_server_is_busy_not_offline() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(record_json())
+                        .set_delay(Duration::from_secs(2)),
+                )
+                .mount(&server)
+                .await;
+            let got = client(&server).await.get("a", "b", "", 1).await;
+            assert!(matches!(got, Err(FetchError::Busy)), "{got:?}");
+        }
+
+        #[tokio::test]
+        async fn unreachable_server_is_offline() {
+            // Bind and drop: nothing listens on this port any more.
+            let port = std::net::TcpListener::bind("127.0.0.1:0")
+                .unwrap()
+                .local_addr()
+                .unwrap()
+                .port();
+            let client = Client::with(&format!("http://127.0.0.1:{port}/api"), FAST).unwrap();
+            let got = client.get("a", "b", "", 1).await;
+            assert!(matches!(got, Err(FetchError::Offline(_))), "{got:?}");
+        }
+
+        #[tokio::test]
+        async fn oversized_response_is_refused() {
+            let server = MockServer::start().await;
+            let huge = format!("[{}]", vec!["{}"; MAX_BODY_BYTES / 2].join(","));
+            Mock::given(method("GET"))
+                .and(path("/api/search"))
+                .respond_with(ResponseTemplate::new(200).set_body_string(huge))
+                .mount(&server)
+                .await;
+            let got = client(&server).await.search("a", "b").await;
+            assert!(matches!(got, Err(FetchError::TooLarge)), "{got:?}");
+        }
+
+        // A track change aborts the lookup task (`sync::Inflight`); the
+        // request in flight must go with it instead of finishing later.
+        #[tokio::test]
+        async fn aborting_the_task_drops_the_request() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(record_json())
+                        .set_delay(Duration::from_millis(400)),
+                )
+                .mount(&server)
+                .await;
+            let client = std::sync::Arc::new(client(&server).await);
+            let task = {
+                let client = std::sync::Arc::clone(&client);
+                tokio::spawn(async move { client.get("a", "b", "", 1).await })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            task.abort();
+            let joined = task.await;
+            assert!(joined.unwrap_err().is_cancelled());
+            assert_eq!(server.received_requests().await.unwrap().len(), 1);
+        }
     }
 }

@@ -48,6 +48,8 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 proptest = { version = "1", default-features = false, features = ["std"] }
 # Local test servers (streamed bodies, redirects).
 tokio = { version = "1", features = ["io-util", "rt-multi-thread"] }
+# HTTP mocks for the LRCLIB client (status codes, Retry-After, delays).
+wiremock = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # MPRIS over the session bus; tokio integration so it shares Tauri's runtime.

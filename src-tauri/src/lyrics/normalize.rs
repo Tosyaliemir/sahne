@@ -148,4 +148,15 @@ mod tests {
         );
         assert_eq!(primary_artist("Tarkan"), "Tarkan");
     }
+
+    // T3: arbitrary titles never panic (byte-index slicing around brackets
+    // and separators) and never come back empty unless the input was blank.
+    proptest::proptest! {
+        #[test]
+        fn clean_title_is_total(title in r"\PC{0,60}|([a-zğüşıöçİ ]{0,8}[(\[)\]-]{0,2}( - )?(feat\. |Remastered |Live)?){0,6}") {
+            let cleaned = clean_title(&title);
+            proptest::prop_assert_eq!(cleaned.is_empty(), title.trim().is_empty());
+            proptest::prop_assert_eq!(cleaned.trim(), cleaned.as_str());
+        }
+    }
 }
