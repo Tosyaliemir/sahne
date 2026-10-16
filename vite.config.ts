@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import pkg from "./package.json" with { type: "json" };
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -8,6 +9,7 @@ export default defineConfig(({ command }) => ({
   // `?svelte&type=style` modules, so scoped styles break. Injecting CSS from JS
   // avoids those modules; production builds still extract a stylesheet.
   plugins: [svelte({ emitCss: command === "build" })],
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   // Keep Rust compiler errors visible in `tauri dev`.
   clearScreen: false,
   server: {

@@ -7,6 +7,7 @@
   import { lyrics } from "../stores/lyrics.svelte";
   import { STYLES, ui } from "../stores/ui.svelte";
   import { t } from "../i18n/index.svelte";
+  import AboutSection from "./AboutSection.svelte";
   import type { Settings } from "../types";
 
   let { onClose }: { onClose: () => void } = $props();
@@ -227,6 +228,8 @@
       </button>
     </div>
   </section>
+
+  <AboutSection />
 </aside>
 
 <style>

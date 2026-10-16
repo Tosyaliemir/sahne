@@ -90,5 +90,14 @@
   "settings.performance": "Performans modu",
   "performance.auto": "Otomatik",
   "performance.quality": "Kalite",
-  "performance.battery": "Pil tasarrufu"
+  "performance.battery": "Pil tasarrufu",
+  "about.title": "Hakkında",
+  "about.licensing": "Sahne MIT lisanslıdır; aşağıdaki bildirimlerde listelenen üçüncü taraf dosyalar kendi lisanslarını korur.",
+  "about.credits": "Efektler David Haz'ın React Bits bileşenlerinden türetilmiştir. Sözler LRCLIB'den gelir. Manrope yazı tipi. Tauri ve Svelte ile yapılmıştır. Arka plan Apple Music ve AMLL'den esinlenmiştir.",
+  "about.spotify": "Sahne'nin Spotify ile bir bağlantısı yoktur ve Spotify tarafından onaylanmamıştır. Spotify, Spotify AB'nin ticari markasıdır.",
+  "about.lyrics": "Sözler LRCLIB topluluğu tarafından sağlanır ve hakları sahiplerine aittir; Sahne onları yalnızca gösterir ve yerel olarak önbelleğe alır.",
+  "about.notices": "Üçüncü taraf bildirimleri",
+  "about.license": "MIT Lisansı",
+  "about.rust": "Rust bağımlılıklarının lisansları",
+  "about.npm": "Arayüz bağımlılıklarının lisansları"
 }

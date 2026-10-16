@@ -64,6 +64,12 @@
     "shortDescription": "Spotify için animasyonlu sözler ve ortam renkleri",
     "longDescription": "Sahne, Spotify'da (veya sistem medya kontrollerine bağlanan başka bir oynatıcıda) çalan şarkının sözlerini senkronize ve kelime kelime animasyonlu olarak tam ekranda gösterir; arka planı albüm kapağının renklerine büründürür.",
     "license": "MIT",
+    "resources": {
+      "../LICENSE": "licenses/LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md",
+      "../src/assets/licenses/rust.txt": "licenses/rust-dependencies.txt",
+      "../src/assets/licenses/npm.txt": "licenses/npm-dependencies.txt"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",

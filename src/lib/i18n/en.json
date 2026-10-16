@@ -90,5 +90,14 @@
   "settings.performance": "Performance mode",
   "performance.auto": "Auto",
   "performance.quality": "Quality",
-  "performance.battery": "Battery saver"
+  "performance.battery": "Battery saver",
+  "about.title": "About",
+  "about.licensing": "Sahne is MIT-licensed, except for the third-party files listed in the notices below, which keep their own licences.",
+  "about.credits": "Effects derived from React Bits by David Haz. Lyrics from LRCLIB. Manrope typeface. Built with Tauri and Svelte. Backdrop inspired by Apple Music and AMLL.",
+  "about.spotify": "Sahne is not affiliated with or endorsed by Spotify. Spotify is a trademark of Spotify AB.",
+  "about.lyrics": "Lyrics are community-provided by LRCLIB and remain the property of their respective rights holders; Sahne only displays and caches them locally.",
+  "about.notices": "Third-party notices",
+  "about.license": "MIT License",
+  "about.rust": "Rust dependency licences",
+  "about.npm": "Frontend dependency licences"
 }
