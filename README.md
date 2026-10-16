@@ -3,6 +3,7 @@
 **English** · [Türkçe](README.tr.md)
 
 [![CI](https://github.com/Tosyaliemir/sahne/actions/workflows/ci.yml/badge.svg)](https://github.com/Tosyaliemir/sahne/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Tosyaliemir/sahne/graph/badge.svg)](https://codecov.io/gh/Tosyaliemir/sahne)
 [![Release](https://img.shields.io/github/v/release/Tosyaliemir/sahne?include_prereleases&sort=semver)](https://github.com/Tosyaliemir/sahne/releases)
 [![Licence: MIT with exceptions](https://img.shields.io/badge/licence-MIT%20with%20exceptions-blue)](#licence-and-disclaimers)
 ![Platforms: Linux, Windows](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-informational)

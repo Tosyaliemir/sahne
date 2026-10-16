@@ -8,3 +8,5 @@ dev-tools/mock-player/target/
 src/assets/licenses/
 THIRD_PARTY_NOTICES.md
 LICENSES/
+coverage/
+dev-tools/visual/out/

@@ -26,6 +26,12 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     include: ["src/**/*.test.ts"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,svelte}"],
+      exclude: ["src/**/*.test.ts", "src/test/**"],
+      reporter: ["text-summary", "lcov", "json-summary"],
+    },
     // happy-dom rejects the `finished` promise of Web Animations that Svelte
     // cancels when a component with a running transition is removed.
     onUnhandledError: (error) =>

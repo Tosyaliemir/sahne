@@ -23,6 +23,8 @@ function run(name, cmd, args, env = {}) {
   const waiters = new Set();
   const onData = (chunk) => {
     for (const raw of chunk.toString().split("\n")) {
+      // Strip ANSI colour codes.
+      // eslint-disable-next-line no-control-regex
       const line = raw.replace(/\x1b\[[0-9;]*m/g, "").trimEnd();
       if (!line) continue;
       lines.push(line);

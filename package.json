@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "preview:fixture": "node dev-tools/preview/make-fixture.mjs",
     "screenshots": "node dev-tools/screenshots/capture.mjs",
-    "visual": "node dev-tools/visual/check.mjs"
+    "visual": "node dev-tools/visual/check.mjs",
+    "coverage": "vitest run --coverage"
   },
   "//": "MIT, except for the third-party files listed in THIRD_PARTY_NOTICES.md, which keep their own licences.",
   "license": "MIT",
@@ -28,6 +29,7 @@
     "@testing-library/svelte": "^5.4.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^26.6.5",
+    "@vitest/coverage-v8": "5.0.5",
     "eslint": "^10.12.0",
     "eslint-plugin-svelte": "^3.23.1",
     "globals": "^17.13.0",

@@ -5,7 +5,7 @@ import ts from "typescript-eslint";
 import svelteConfig from "./svelte.config.js";
 
 export default ts.config(
-  { ignores: ["dist/", "src-tauri/", "dev-tools/mock-player/", "node_modules/"] },
+  { ignores: ["dist/", "coverage/", "src-tauri/", "dev-tools/mock-player/", "node_modules/"] },
   js.configs.recommended,
   ...ts.configs.recommended,
   ...svelte.configs.recommended,
