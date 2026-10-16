@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 The 0.2.0 revision: security hardening, correctness and performance fixes,
 licensing, an English-first repository, tests and release tooling.
 
@@ -89,5 +91,6 @@ licensing, an English-first repository, tests and release tooling.
   color; optional edge glow and cover effects (metal plate, electric border).
 - Mini player, screensaver mode, per-track lyric offsets and an on-disk cache.
 
-[Unreleased]: https://github.com/Tosyaliemir/sahne/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Tosyaliemir/sahne/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Tosyaliemir/sahne/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Tosyaliemir/sahne/releases/tag/v0.1.0

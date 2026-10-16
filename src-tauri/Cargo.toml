@@ -1,6 +1,6 @@
 [package]
 name = "sahne"
-version = "0.1.0"
+version = "0.2.0"
 description = "Synchronized, animated lyrics and ambient colors for your desktop music player"
 authors = ["Sahne contributors"]
 # MIT, except for the third-party files listed in THIRD_PARTY_NOTICES.md

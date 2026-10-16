@@ -1,6 +1,6 @@
 {
   "name": "sahne",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Synchronized, animated lyrics and ambient colors for your desktop music player",
   "type": "module",
   "scripts": {
