@@ -230,4 +230,4 @@ Arka plan efekti, Apple Music'in sözler ekranındaki ve [AMLL](https://github.c
 
 ## Lisans
 
-MIT (bkz. `LICENSE`). Gömülü Manrope yazı tipi SIL Open Font License 1.1 ile dağıtılır (`src/assets/fonts/OFL.txt`).
+Sahne MIT lisanslıdır (bkz. `LICENSE`); `THIRD_PARTY_NOTICES.md` içinde listelenen üçüncü taraf dosyalar kendi lisanslarını korur. İki efekt modülü React Bits'ten türetilmiştir ve MIT + Commons Clause v1.0 lisanslıdır; gömülü Manrope yazı tipi SIL Open Font License 1.1 ile dağıtılır.

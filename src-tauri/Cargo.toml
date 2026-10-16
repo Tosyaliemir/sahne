@@ -3,6 +3,8 @@ name = "sahne"
 version = "0.1.0"
 description = "Animated synced lyrics and ambient colors for Spotify on Linux"
 authors = ["Sahne contributors"]
+# MIT, except for the third-party files listed in THIRD_PARTY_NOTICES.md
+# (React Bits effects under MIT + Commons Clause; Manrope under OFL-1.1).
 license = "MIT"
 repository = "https://github.com/Tosyaliemir/sahne"
 edition = "2021"
