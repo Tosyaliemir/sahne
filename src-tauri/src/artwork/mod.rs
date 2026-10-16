@@ -10,7 +10,7 @@ pub mod palette;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use image::DynamicImage;
@@ -21,6 +21,7 @@ use tokio::sync::watch;
 use crate::events::{self, PaletteChanged, TrackInfo};
 use crate::net;
 use crate::paths::{self, Paths};
+use crate::sync::{lock, Inflight};
 use palette::Palette;
 
 const MAX_ART_BYTES: usize = 15 * 1024 * 1024;
@@ -63,6 +64,8 @@ pub struct ArtworkService {
     dir: PathBuf,
     current: Mutex<Option<PaletteChanged>>,
     generation: AtomicU64,
+    /// The current track's download/decode; aborted when the track changes.
+    inflight: Inflight,
 }
 
 impl ArtworkService {
@@ -81,6 +84,7 @@ impl ArtworkService {
             dir: paths.art_cache(),
             current: Mutex::new(None),
             generation: AtomicU64::new(0),
+            inflight: Inflight::default(),
         }
     }
 
@@ -101,9 +105,10 @@ impl ArtworkService {
                         let this = Arc::clone(&self);
                         let app = app.clone();
                         let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
-                        tauri::async_runtime::spawn(async move {
+                        let task = tauri::async_runtime::spawn(async move {
                             this.load(&app, generation, track).await
                         });
+                        self.inflight.replace(Some(task));
                     }
                 }
                 if tracks.changed().await.is_err() {
@@ -165,7 +170,10 @@ impl ArtworkService {
                 let key = paths::stable_hash(remote.as_str());
                 let cached = self.dir.join(format!("{key}.img"));
                 let bytes = match tokio::fs::read(&cached).await {
-                    Ok(b) => b,
+                    Ok(b) => {
+                        crate::cache::touch(&cached);
+                        b
+                    }
                     Err(_) => self.download(&remote).await?,
                 };
                 (key, bytes)
@@ -182,6 +190,9 @@ impl ArtworkService {
         }
 
         let bg_exists = bg_path.exists();
+        if bg_exists {
+            crate::cache::touch(&bg_path);
+        }
         let bg_for_task = bg_path.clone();
         let palette = tokio::task::spawn_blocking(move || -> Result<Palette, ArtError> {
             let img = decode_limited(&bytes)?;
@@ -308,10 +319,6 @@ fn decode_limited(bytes: &[u8]) -> Result<DynamicImage, ArtError> {
     Ok(reader.decode()?)
 }
 
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -337,6 +344,22 @@ mod tests {
             art_source("file:///home/k/M%C3%BCzik/a%20b.jpg").unwrap(),
             ArtSource::Local(PathBuf::from("/home/k/Müzik/a b.jpg"))
         );
+    }
+
+    // C7: a file URL built from a path with `%` and non-ASCII characters
+    // (as the Windows backend does) decodes back to the same path.
+    #[test]
+    fn file_url_round_trip_with_odd_characters() {
+        let dir = scratch("odd %25 ü İ");
+        let path = dir.join("cover 100% şarkı.png");
+        std::fs::write(&path, png(2, 2, [5, 6, 7])).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        assert_eq!(
+            art_source(url.as_str()).unwrap(),
+            ArtSource::Local(path.clone())
+        );
+        assert!(read_local_art(&path, MAX_ART_BYTES).is_ok());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     // S4: plain http and private hosts are refused before any request.
