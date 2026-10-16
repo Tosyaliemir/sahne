@@ -242,6 +242,9 @@ fn apply_webkit_workarounds() {
     }
 }
 
+/// Bundle identifier up to 0.1; see the migration in `run`.
+const LEGACY_IDENTIFIER: &str = "dev.sahne.app";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_tracing();
@@ -283,10 +286,17 @@ pub fn run() {
             }
             let handle = app.handle().clone();
             let mut extra = Vec::new();
-            if cfg!(windows) {
-                if let Ok(dir) = app.path().app_cache_dir() {
+            let mut legacy_cache = None;
+            if let Ok(dir) = app.path().app_cache_dir() {
+                if cfg!(windows) {
                     extra.push((dir.join("session-art"), 50 * 1024 * 1024));
                 }
+                // 0.2 changed the bundle identifier; the old one's cache
+                // directory (Windows session art, WebView cache) is orphaned.
+                legacy_cache = dir
+                    .parent()
+                    .map(|p| p.join(LEGACY_IDENTIFIER))
+                    .filter(|old| *old != dir);
             }
             let dirs = Arc::new(CacheDirs {
                 paths: cache_paths.clone(),
@@ -294,6 +304,12 @@ pub fn run() {
             });
             app.manage(Arc::clone(&dirs));
             tauri::async_runtime::spawn_blocking(move || {
+                if let Some(old) = legacy_cache.filter(|old| old.is_dir()) {
+                    match std::fs::remove_dir_all(&old) {
+                        Ok(()) => tracing::info!("removed the 0.1 cache at {}", old.display()),
+                        Err(e) => tracing::warn!("could not remove {}: {e}", old.display()),
+                    }
+                }
                 cache::prune_all(&dirs.paths, &dirs.extra)
             });
             screensaver::spawn(handle.clone(), settings.clone(), player.clone(), idle);

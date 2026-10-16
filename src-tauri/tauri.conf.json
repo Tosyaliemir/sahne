@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Sahne",
-  "version": "0.1.0",
-  "identifier": "dev.sahne.app",
+  "version": "../package.json",
+  "identifier": "io.github.tosyaliemir.Sahne",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -61,8 +61,8 @@
       "deb"
     ],
     "category": "Music",
-    "shortDescription": "Spotify için animasyonlu sözler ve ortam renkleri",
-    "longDescription": "Sahne, Spotify'da (veya sistem medya kontrollerine bağlanan başka bir oynatıcıda) çalan şarkının sözlerini senkronize ve kelime kelime animasyonlu olarak tam ekranda gösterir; arka planı albüm kapağının renklerine büründürür.",
+    "shortDescription": "Synchronized, animated lyrics and ambient colors for your desktop music player",
+    "longDescription": "Sahne shows the lyrics of whatever is playing in Spotify (or any player that reports to the system media controls) synchronized and animated word by word, over a backdrop made from the album artwork's colors.",
     "license": "MIT",
     "resources": {
       "../LICENSE": "licenses/LICENSE",
@@ -86,7 +86,7 @@
         "bundleMediaFramework": false
       }
     },
-    "publisher": "Sahne",
+    "publisher": "Sahne contributors",
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
@@ -94,12 +94,13 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": [
-          "Turkish",
-          "English"
+          "English",
+          "Turkish"
         ],
         "displayLanguageSelector": false
       }
-    }
+    },
+    "copyright": "Copyright (c) 2026 Sahne contributors"
   },
   "mainBinaryName": "sahne"
 }

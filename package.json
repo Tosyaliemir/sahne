@@ -1,7 +1,7 @@
 {
   "name": "sahne",
   "version": "0.1.0",
-  "description": "Animated synced lyrics and ambient colors for Spotify on Linux",
+  "description": "Synchronized, animated lyrics and ambient colors for your desktop music player",
   "type": "module",
   "scripts": {
     "dev": "vite",
