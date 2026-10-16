@@ -11,6 +11,9 @@ use zbus::zvariant::ObjectPath;
 use zbus::Connection;
 
 use super::mpris::{parse_metadata, short_name, PlayerProxy, MPRIS_PREFIX};
+
+/// The bus-name namespace all MPRIS players live in.
+const MPRIS_NAMESPACE: &str = "org.mpris.MediaPlayer2";
 use super::select::choose_player;
 use super::{
     apply_status, apply_track, apply_volume, disconnect, position_read, PlayerState, BACKOFF_MAX,
@@ -104,7 +107,7 @@ async fn run_session(
 ) -> AppResult<()> {
     let conn = Connection::session().await?;
     let dbus = DBusProxy::new(&conn).await?;
-    let mut owners = dbus.receive_name_owner_changed().await?;
+    let mut owners = player_owner_changes(&conn).await?;
     *backoff = BACKOFF_MIN;
     tracing::info!("connected to session bus");
 
@@ -113,15 +116,7 @@ async fn run_session(
             disconnect(app, state);
             tracing::info!("no MPRIS player found, waiting");
             // Wait until some MPRIS player appears.
-            loop {
-                let signal = owners.next().await.ok_or(zbus::Error::InputOutput(
-                    std::io::Error::other("NameOwnerChanged stream ended").into(),
-                ))?;
-                let args = signal.args()?;
-                if args.name().starts_with(MPRIS_PREFIX) && args.new_owner().is_some() {
-                    break;
-                }
-            }
+            while !next_owner_change(&mut owners).await?.appeared {}
             continue;
         };
 
@@ -187,7 +182,7 @@ async fn follow(
     conn: &Connection,
     dbus: &DBusProxy<'_>,
     bus_name: &str,
-    owners: &mut zbus::fdo::NameOwnerChangedStream,
+    owners: &mut zbus::MessageStream,
 ) -> AppResult<Exit> {
     let proxy = PlayerProxy::builder(conn)
         .destination(bus_name.to_owned())?
@@ -263,24 +258,54 @@ async fn follow(
                     return Ok(Exit::Reselect);
                 }
             }
-            signal = owners.next() => {
-                let signal = signal.ok_or_else(|| zbus::Error::InputOutput(
-                    std::io::Error::other("NameOwnerChanged stream ended").into(),
-                ))?;
-                let args = signal.args()?;
-                if !args.name().starts_with(MPRIS_PREFIX) {
-                    continue;
-                }
-                if args.name().as_str() == bus_name && args.new_owner().is_none() {
+            change = next_owner_change(owners) => {
+                let change = change?;
+                if change.name == bus_name && !change.appeared {
                     tracing::info!("{bus_name} quit");
                     return Ok(Exit::Reselect);
                 }
-                if args.new_owner().is_some() {
+                if change.appeared {
                     let best = select_player(conn, dbus, state.preferred().as_deref()).await?;
                     if best.as_deref() != Some(bus_name) {
                         return Ok(Exit::Reselect);
                     }
                 }
+            }
+        }
+    }
+}
+
+/// A player appearing on or leaving the bus.
+struct OwnerChange {
+    name: String,
+    appeared: bool,
+}
+
+/// `NameOwnerChanged` for MPRIS names only: the bus filters with
+/// `arg0namespace`, so other clients coming and going never wake us.
+async fn player_owner_changes(conn: &Connection) -> zbus::Result<zbus::MessageStream> {
+    let rule = zbus::MatchRule::builder()
+        .msg_type(zbus::message::Type::Signal)
+        .sender("org.freedesktop.DBus")?
+        .interface("org.freedesktop.DBus")?
+        .member("NameOwnerChanged")?
+        .arg0ns(MPRIS_NAMESPACE)?
+        .build();
+    zbus::MessageStream::for_match_rule(rule, conn, None).await
+}
+
+async fn next_owner_change(owners: &mut zbus::MessageStream) -> zbus::Result<OwnerChange> {
+    loop {
+        let msg = owners.next().await.ok_or_else(|| {
+            zbus::Error::InputOutput(std::io::Error::other("NameOwnerChanged stream ended").into())
+        })??;
+        // (name, old owner, new owner); an empty owner means none.
+        if let Ok((name, _old, new)) = msg.body().deserialize::<(String, String, String)>() {
+            if name.starts_with(MPRIS_PREFIX) {
+                return Ok(OwnerChange {
+                    name,
+                    appeared: !new.is_empty(),
+                });
             }
         }
     }
