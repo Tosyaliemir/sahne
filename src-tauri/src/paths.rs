@@ -113,9 +113,29 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
     tmp.write_all(bytes)?;
     tmp.as_file().sync_all()?;
-    tmp.persist(path).map_err(|e| e.error)?;
-    Ok(())
+    let mut attempt = 0u32;
+    loop {
+        match tmp.persist(path) {
+            Ok(_) => return Ok(()),
+            // Windows refuses to replace a file that another writer is
+            // replacing (or a reader has open) at that very moment; it clears
+            // within milliseconds.
+            Err(e)
+                if cfg!(windows)
+                    && e.error.kind() == io::ErrorKind::PermissionDenied
+                    && attempt < PERSIST_RETRIES =>
+            {
+                attempt += 1;
+                tmp = e.file;
+                std::thread::sleep(std::time::Duration::from_millis(2 << attempt.min(5)));
+            }
+            Err(e) => return Err(e.error),
+        }
+    }
 }
+
+/// Retries of the final rename in [`write_atomic`] on Windows (about 1 s in all).
+const PERSIST_RETRIES: u32 = 20;
 
 pub fn unix_now() -> u64 {
     std::time::SystemTime::now()
