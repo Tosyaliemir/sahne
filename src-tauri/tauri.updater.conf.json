@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE WITH THE CONTENT OF THE PUBLIC KEY (see docs/RELEASING.md)",
+      "endpoints": ["https://github.com/Tosyaliemir/sahne/releases/latest/download/latest.json"]
+    }
+  }
+}

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.tosyaliemir.Sahne</id>
+  <name>Sahne</name>
+  <summary>Synchronized, animated lyrics for your music player</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT AND OFL-1.1 AND LicenseRef-MIT-Commons-Clause=https://github.com/Tosyaliemir/sahne/blob/main/THIRD_PARTY_NOTICES.md</project_license>
+  <developer id="io.github.tosyaliemir">
+    <name>Sahne contributors</name>
+  </developer>
+  <description>
+    <p>
+      Sahne shows synchronized, word-by-word animated lyrics for the song playing in Spotify or any
+      other player that reports to the system's media controls, over a backdrop made from the album
+      artwork's colors.
+    </p>
+    <ul>
+      <li>Six lyrics styles, from a calm classic view to kinetic type and a 3D wall of lines</li>
+      <li>Backdrops and cover effects generated from the artwork</li>
+      <li>Mini player, screensaver mode and per-track timing correction</li>
+      <li>No account or API key needed; lyrics come from LRCLIB</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.tosyaliemir.Sahne.desktop</launchable>
+  <url type="homepage">https://github.com/Tosyaliemir/sahne</url>
+  <url type="bugtracker">https://github.com/Tosyaliemir/sahne/issues</url>
+  <url type="vcs-browser">https://github.com/Tosyaliemir/sahne</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Lyrics next to the album cover</caption>
+      <image>https://raw.githubusercontent.com/Tosyaliemir/sahne/main/docs/screenshots/hero.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Wall style</caption>
+      <image>https://raw.githubusercontent.com/Tosyaliemir/sahne/main/docs/screenshots/wall.webp</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2026-10-15"/>
+  </releases>
+</component>

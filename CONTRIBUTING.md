@@ -144,6 +144,10 @@ Do not add song lyrics or other copyrighted text to code, tests, fixtures or
 screenshots. Use invented text instead. Screenshot fixtures stay in the
 git-ignored `dev-tools/preview/fixtures/` directory.
 
+## Releasing
+
+See [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Licensing
 
 Contributions are accepted under the MIT License, the project's licence. Files

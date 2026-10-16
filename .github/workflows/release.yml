@@ -1,13 +1,15 @@
 name: Release
 
-# Push a tag like v0.2.0 to build the Linux (AppImage, .deb) and Windows
-# (setup .exe) packages and attach them to a draft GitHub release.
+# `pnpm release <version>` commits and tags; pushing the tag (v1.2.3) builds
+# the packages, writes SHA256SUMS, attests build provenance and attaches it
+# all to a draft release with notes from CHANGELOG.md. A maintainer reviews
+# and publishes the draft by hand. See docs/RELEASING.md.
 on:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -15,11 +17,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04 # older glibc: the AppImage runs on more distributions
+          - name: linux-x64
+            os: ubuntu-22.04 # older glibc: the AppImage runs on more distributions
             bundles: appimage,deb
-          - os: windows-latest
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            bundles: appimage,deb
+            optional: true
+          - name: windows-x64
+            os: windows-latest
             bundles: nsis
     runs-on: ${{ matrix.os }}
+    # The aarch64 build is a bonus; it never blocks a release.
+    continue-on-error: ${{ matrix.optional == true }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -46,16 +56,88 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Sahne ${{ github.ref_name }}
-          releaseBody: |
-            **Linux:** `.AppImage` (her dağıtımda, kurulumsuz) veya `.deb` (Debian/Ubuntu).
-            **Windows:** `Sahne_..._x64-setup.exe` dosyasını indirip çalıştırın.
+      # Disabled until the repository variable ENABLE_UPDATER is "true" and
+      # the TAURI_SIGNING_PRIVATE_KEY(_PASSWORD) secrets exist (CI3).
+      - name: Updater artifacts
+        if: vars.ENABLE_UPDATER == 'true'
+        shell: bash
+        run: echo "EXTRA_CONFIG=$EXTRA_CONFIG --config src-tauri/tauri.updater.conf.json" >> "$GITHUB_ENV"
 
-            Kurulum ve kullanım için README'ye bakın.
-          releaseDraft: true
-          args: --bundles ${{ matrix.bundles }}
+      # Disabled until the repository variable WINDOWS_SIGN_COMMAND is set,
+      # e.g. to a signtool or Azure Trusted Signing command with %1 for the
+      # file (CI3). Its credentials come from secrets in the command's env.
+      - name: Windows code signing
+        if: runner.os == 'Windows' && vars.WINDOWS_SIGN_COMMAND != ''
+        shell: bash
+        env:
+          SIGN_COMMAND: ${{ vars.WINDOWS_SIGN_COMMAND }}
+        run: |
+          node -e 'require("fs").writeFileSync(process.env.RUNNER_TEMP + "/sign.json",
+            JSON.stringify({ bundle: { windows: { signCommand: process.env.SIGN_COMMAND } } }))'
+          echo "EXTRA_CONFIG=$EXTRA_CONFIG --config $RUNNER_TEMP/sign.json" >> "$GITHUB_ENV"
+
+      - name: Build
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          # EXTRA_CONFIG is a list of flags and must split into words.
+          # shellcheck disable=SC2086
+          pnpm tauri build --bundles ${{ matrix.bundles }} ${EXTRA_CONFIG:-}
+
+      - name: Collect packages
+        shell: bash
+        run: |
+          mkdir -p packages
+          find src-tauri/target/release/bundle -maxdepth 2 -type f \
+            \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' -o -name '*.sig' \) \
+            -exec cp {} packages/ \;
+          ls -l packages
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-${{ matrix.name }}
+          path: packages/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: packages-*
+          path: packages
+          merge-multiple: true
+
+      # Only with the updater enabled (CI3): the manifest the app polls.
+      - name: Updater manifest
+        if: vars.ENABLE_UPDATER == 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node dev-tools/release/latest-json.mjs "${TAG#v}" packages > packages/latest.json
+
+      - name: Checksums
+        working-directory: packages
+        run: sha256sum -- * | tee SHA256SUMS
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: packages/*
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          node dev-tools/release/notes.mjs "$TAG" > notes.md
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag --title "Sahne ${TAG#v}" --notes-file notes.md
+          fi
+          gh release upload "$TAG" packages/* --clobber

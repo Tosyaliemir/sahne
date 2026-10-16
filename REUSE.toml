@@ -35,3 +35,10 @@ path = "docs/screenshots/**"
 precedence = "override"
 SPDX-FileCopyrightText = ["2026 Sahne contributors", "Album artwork and lyrics: their respective owners"]
 SPDX-License-Identifier = "LicenseRef-Screenshots"
+
+# AppStream metadata is CC0, as its <metadata_license> says.
+[[annotations]]
+path = "packaging/linux/*.metainfo.xml"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sahne contributors"
+SPDX-License-Identifier = "CC0-1.0"

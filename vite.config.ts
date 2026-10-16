@@ -25,7 +25,7 @@ export default defineConfig(({ command }) => ({
     target: "es2022",
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "dev-tools/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,svelte}"],

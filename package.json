@@ -15,7 +15,8 @@
     "preview:fixture": "node dev-tools/preview/make-fixture.mjs",
     "screenshots": "node dev-tools/screenshots/capture.mjs",
     "visual": "node dev-tools/visual/check.mjs",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "release": "node dev-tools/release/release.mjs"
   },
   "//": "MIT, except for the third-party files listed in THIRD_PARTY_NOTICES.md, which keep their own licences.",
   "license": "MIT",
