@@ -14,6 +14,15 @@ edition = "2021"
 name = "sahne_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Dev tooling only: exposes the lyrics and palette pipeline to
+# `examples/preview_fixture.rs` (screenshot fixtures). Never shipped.
+dev-fixture = []
+
+[[example]]
+name = "preview_fixture"
+required-features = ["dev-fixture"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

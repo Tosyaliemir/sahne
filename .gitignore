@@ -5,3 +5,5 @@ node_modules
 !.env.example
 vite.config.ts.timestamp-*
 /dev-tools/mock-player/target
+# Screenshot fixtures contain lyrics; never commit them.
+/dev-tools/preview/fixtures/

@@ -5,10 +5,22 @@
  *   pnpm vite --port 1430
  *   http://127.0.0.1:1430/preview.html?view=main&style=classic&at=12500
  *
- * Parameters: view=main|mini, style=classic|kinetic|minimal, at=<ms position>,
- * panel=settings, lyrics=synced|plain|loading|not_found, paused=1, lang=en,
- * bg=fluid|blurred|cover|color, glow=1, cover=metal|electric, bar=1 (bottom bar never hides), static=1 (no CSS transitions/animations, for stable screenshots; also run
- * Chrome with --force-prefers-reduced-motion so Svelte transitions are instant)
+ * Parameters:
+ *   view=main|mini
+ *   style=classic|kinetic|minimal|wave|blend|wall
+ *   at=<position in ms>, paused=1
+ *   focus=1           lyrics focus (as after pressing L) instead of the split view
+ *   panel=settings    open the settings panel
+ *   lyrics=synced|plain|loading|not_found|instrumental|offline|error
+ *   lang=en|tr
+ *   bg=fluid|blurred|cover|color, glow=1, cover=none|metal|electric
+ *   perf=auto|quality|battery
+ *   bar=1             the bottom bar never hides
+ *   static=1          no CSS transitions or animations, for stable screenshots
+ *                     (also run Chrome with --force-prefers-reduced-motion so
+ *                     Svelte transitions are instant)
+ *   fixture=<name>    use dev-tools/preview/fixtures/<name>.json, made by
+ *                     `pnpm preview:fixture` (git-ignored; holds real lyrics)
  */
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
@@ -19,7 +31,25 @@ const view = q.get("view") === "mini" ? "mini" : "main";
 const at = Number(q.get("at") ?? 12_500);
 const paused = q.get("paused") === "1";
 
-const track: TrackInfo = {
+/** A fixture from `pnpm preview:fixture`: the app's own output for a real track. */
+interface Fixture {
+  track: TrackInfo;
+  lyrics: LyricsLoaded;
+  palette: PaletteChanged["palette"];
+  cover: string;
+  background: string;
+}
+const fixtureName = q.get("fixture");
+const fixtureDir = "/dev-tools/preview/fixtures/";
+const fixture: Fixture | null = fixtureName
+  ? await fetch(`${fixtureDir}${encodeURIComponent(fixtureName)}.json`).then((r) =>
+      r.ok
+        ? (r.json() as Promise<Fixture>)
+        : Promise.reject(new Error(`fixture ${fixtureName}: HTTP ${r.status}`)),
+    )
+  : null;
+
+const track: TrackInfo = fixture?.track ?? {
   id: "/preview/1",
   title: "Işıklı Günler",
   artist: "Örnek Sanatçı",
@@ -30,38 +60,52 @@ const track: TrackInfo = {
 };
 
 const line = (s: number, e: number, text: string) => ({ start_ms: s, end_ms: e, text, words: null });
-const lyricsData: LyricsLoaded = {
-  track_id: track.id,
-  state: (q.get("lyrics") as LyricsLoaded["state"]) ?? "synced",
-  offset_ms: 0,
-  plain:
-    "Çiçekler sabahı bekliyor\nGölgede üşüyen İstanbul\nIşıklar ağır ağır sönüyor\nŞarkı bitmeden dönüyoruz",
-  lines: [
-    line(0, 9_000, ""),
-    line(9_000, 12_000, "Çiçekler sabahı bekliyor"),
-    line(12_000, 15_400, "Gölgede üşüyen İstanbul"),
-    line(15_400, 18_000, "Işıklar ağır ağır sönüyor"),
-    line(18_000, 21_000, "Şarkı bitmeden dönüyoruz"),
-    // Instrumental interlude.
-    line(21_000, 30_000, ""),
-    line(30_000, 33_000, "Öğle güneşi çığlık çığlığa"),
-  ],
-};
+const lyricsData: LyricsLoaded = fixture
+  ? {
+      ...fixture.lyrics,
+      track_id: track.id,
+      state: (q.get("lyrics") as LyricsLoaded["state"]) ?? fixture.lyrics.state,
+    }
+  : {
+      track_id: track.id,
+      state: (q.get("lyrics") as LyricsLoaded["state"]) ?? "synced",
+      offset_ms: 0,
+      plain:
+        "Çiçekler sabahı bekliyor\nGölgede üşüyen İstanbul\nIşıklar ağır ağır sönüyor\nŞarkı bitmeden dönüyoruz",
+      lines: [
+        line(0, 9_000, ""),
+        line(9_000, 12_000, "Çiçekler sabahı bekliyor"),
+        line(12_000, 15_400, "Gölgede üşüyen İstanbul"),
+        line(15_400, 18_000, "Işıklar ağır ağır sönüyor"),
+        line(18_000, 21_000, "Şarkı bitmeden dönüyoruz"),
+        // Instrumental interlude.
+        line(21_000, 30_000, ""),
+        line(30_000, 33_000, "Öğle güneşi çığlık çığlığa"),
+      ],
+    };
 
-const palette: PaletteChanged = {
-  track_id: track.id,
-  art_path: null,
-  background_path: null,
-  palette: {
-    dominant: "#6a3c7e",
-    vibrant: "#f0663f",
-    muted: "#7a5c6a",
-    dark_bg: "#1f1225",
-    light_text: "#fbf3f8",
-    accent: "#f7cf3a",
-    ambient: ["#f0663f", "#f7cf3a", "#8a4fb0", "#2f7fd0", "#d9467a"],
-  },
-};
+const palette: PaletteChanged = fixture
+  ? {
+      track_id: track.id,
+      // Served by Vite; convertFileSrc is mocked to pass paths through below.
+      art_path: fixtureDir + fixture.cover,
+      background_path: fixtureDir + fixture.background,
+      palette: fixture.palette,
+    }
+  : {
+      track_id: track.id,
+      art_path: null,
+      background_path: null,
+      palette: {
+        dominant: "#6a3c7e",
+        vibrant: "#f0663f",
+        muted: "#7a5c6a",
+        dark_bg: "#1f1225",
+        light_text: "#fbf3f8",
+        accent: "#f7cf3a",
+        ambient: ["#f0663f", "#f7cf3a", "#8a4fb0", "#2f7fd0", "#d9467a"],
+      },
+    };
 
 const settings: Settings = {
   preferred_player: null,
@@ -108,6 +152,11 @@ if (q.get("static") === "1") {
 
 clearMocks();
 mockWindows(view);
+// The app loads cached images through convertFileSrc + fetch; in the preview
+// the "cached files" are plain same-origin URLs.
+(
+  window as unknown as { __TAURI_INTERNALS__: { convertFileSrc: (p: string) => string } }
+).__TAURI_INTERNALS__.convertFileSrc = (path) => path;
 mockIPC(
   (cmd, args) => {
     switch (cmd) {
@@ -141,6 +190,9 @@ await import("../../src/main");
 setTimeout(() => {
   void emit("position-sync", position);
   void emit("palette-changed", palette);
+  if (q.get("focus") === "1") {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "l" }));
+  }
   if (q.get("panel") === "settings") {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "," }));
   }

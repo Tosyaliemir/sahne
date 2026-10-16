@@ -28,3 +28,10 @@ path = ["LICENSE", "THIRD_PARTY_NOTICES.md", "src/assets/licenses/*.txt"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sahne contributors"
 SPDX-License-Identifier = "MIT"
+
+# Screenshots show third-party artwork and lyrics for illustration only.
+[[annotations]]
+path = "docs/screenshots/**"
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Sahne contributors", "Album artwork and lyrics: their respective owners"]
+SPDX-License-Identifier = "LicenseRef-Screenshots"

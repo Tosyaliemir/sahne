@@ -38,7 +38,7 @@ const BG_SIGMA: f32 = 9.0;
 const OFFLINE_RETRY: Duration = Duration::from_secs(20);
 
 #[derive(Debug, thiserror::Error)]
-enum ArtError {
+pub(crate) enum ArtError {
     #[error("download failed: {0}")]
     Http(#[from] reqwest::Error),
     #[error("artwork too large")]
@@ -194,15 +194,8 @@ impl ArtworkService {
             crate::cache::touch(&bg_path);
         }
         let bg_for_task = bg_path.clone();
-        let palette = tokio::task::spawn_blocking(move || -> Result<Palette, ArtError> {
-            let img = decode_limited(&bytes)?;
-            // One downscale feeds both the palette and the blur.
-            let small = img.thumbnail(WORK_SIZE, WORK_SIZE);
-            drop(img);
-            if !bg_exists {
-                write_background(&small, &bg_for_task)?;
-            }
-            Ok(palette::extract(&small))
+        let palette = tokio::task::spawn_blocking(move || {
+            analyse(&bytes, (!bg_exists).then_some(bg_for_task.as_path()))
         })
         .await
         .map_err(|_| ArtError::Join)??;
@@ -309,6 +302,19 @@ fn has_image_signature(b: &[u8]) -> bool {
 }
 
 /// Decodes with dimension and allocation limits (decompression bombs).
+/// Decodes artwork, extracts its palette and, if `background` is given,
+/// writes the blurred backdrop there. Blocking.
+pub(crate) fn analyse(bytes: &[u8], background: Option<&Path>) -> Result<Palette, ArtError> {
+    let img = decode_limited(bytes)?;
+    // One downscale feeds both the palette and the blur.
+    let small = img.thumbnail(WORK_SIZE, WORK_SIZE);
+    drop(img);
+    if let Some(path) = background {
+        write_background(&small, path)?;
+    }
+    Ok(palette::extract(&small))
+}
+
 fn decode_limited(bytes: &[u8]) -> Result<DynamicImage, ArtError> {
     let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()?;
     let mut limits = image::Limits::default();

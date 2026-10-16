@@ -42,6 +42,65 @@ struct CacheEntry {
     found: Option<Found>,
 }
 
+/// The state a lookup result is shown as.
+fn state_of(found: Option<&Found>) -> LyricsState {
+    match found {
+        Some(f) if f.synced.is_some() => LyricsState::Synced,
+        Some(f) if f.plain.is_some() => LyricsState::Plain,
+        Some(f) if f.instrumental => LyricsState::Instrumental,
+        _ => LyricsState::NotFound,
+    }
+}
+
+/// The payload sent to the frontend for a lookup result.
+fn build_loaded(
+    track: &TrackInfo,
+    state: LyricsState,
+    found: Option<&Found>,
+    offset_ms: i64,
+) -> LyricsLoaded {
+    let lines = found
+        .and_then(|f| f.synced.as_deref())
+        .map(|s| lrc::parse(s, track.length_ms))
+        .unwrap_or_default();
+    // A synced body that parses to nothing is no better than plain text.
+    let state = if state == LyricsState::Synced && lines.is_empty() {
+        if found.and_then(|f| f.plain.as_ref()).is_some() {
+            LyricsState::Plain
+        } else {
+            LyricsState::NotFound
+        }
+    } else {
+        state
+    };
+    LyricsLoaded {
+        track_id: track.id.clone(),
+        state,
+        lines,
+        plain: found.and_then(|f| f.plain.clone()),
+        offset_ms,
+    }
+}
+
+/// Dev tooling: the payload the app would show for a cache file's content.
+#[cfg(feature = "dev-fixture")]
+pub(crate) fn loaded_from_cache(track: &TrackInfo, bytes: &[u8]) -> Option<LyricsLoaded> {
+    let entry: CacheEntry = serde_json::from_slice(bytes).ok()?;
+    let found = entry.found.as_ref();
+    Some(build_loaded(track, state_of(found), found, 0))
+}
+
+/// File name of a track's entry in the lyrics cache.
+pub(crate) fn cache_file_name(track: &TrackInfo) -> String {
+    let key = format!(
+        "{}|{}|{}",
+        track.artist,
+        track.title,
+        track.length_ms / 1000
+    );
+    format!("{}.json", paths::stable_hash(&key))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Found {
     synced: Option<String>,
@@ -187,12 +246,7 @@ impl LyricsService {
                 }
                 match result {
                     Ok(found) => {
-                        let state = match &found {
-                            Some(f) if f.synced.is_some() => LyricsState::Synced,
-                            Some(f) if f.plain.is_some() => LyricsState::Plain,
-                            Some(f) if f.instrumental => LyricsState::Instrumental,
-                            _ => LyricsState::NotFound,
-                        };
+                        let state = state_of(found.as_ref());
                         this.publish(&app, generation, &track, state, found.as_ref());
                         return;
                     }
@@ -236,27 +290,7 @@ impl LyricsService {
         state: LyricsState,
         found: Option<&Found>,
     ) {
-        let lines = found
-            .and_then(|f| f.synced.as_deref())
-            .map(|s| lrc::parse(s, track.length_ms))
-            .unwrap_or_default();
-        // A synced body that parses to nothing is no better than plain text.
-        let state = if state == LyricsState::Synced && lines.is_empty() {
-            if found.and_then(|f| f.plain.as_ref()).is_some() {
-                LyricsState::Plain
-            } else {
-                LyricsState::NotFound
-            }
-        } else {
-            state
-        };
-        let payload = LyricsLoaded {
-            track_id: track.id.clone(),
-            state,
-            lines,
-            plain: found.and_then(|f| f.plain.clone()),
-            offset_ms: self.offset_for(&track.id),
-        };
+        let payload = build_loaded(track, state, found, self.offset_for(&track.id));
         {
             let mut cur = lock(&self.current);
             if self.generation.load(Ordering::SeqCst) != generation {
@@ -276,14 +310,7 @@ impl LyricsService {
     }
 
     fn cache_path(&self, track: &TrackInfo) -> PathBuf {
-        let key = format!(
-            "{}|{}|{}",
-            track.artist,
-            track.title,
-            track.length_ms / 1000
-        );
-        self.cache_dir
-            .join(format!("{}.json", paths::stable_hash(&key)))
+        self.cache_dir.join(cache_file_name(track))
     }
 
     /// Cache first, then LRCLIB. `Ok(None)` means there are no lyrics.

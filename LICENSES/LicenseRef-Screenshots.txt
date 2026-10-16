@@ -1,0 +1,5 @@
+The images in docs/screenshots/ are screenshots of Sahne. The Sahne user
+interface they show is covered by the MIT License (LICENSE). The album artwork
+and song lyrics visible in them are shown for illustration only; all rights
+belong to their respective owners. No licence to the artwork or the lyrics is
+granted.

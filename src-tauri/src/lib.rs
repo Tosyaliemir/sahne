@@ -1,5 +1,7 @@
 mod artwork;
 mod cache;
+#[cfg(feature = "dev-fixture")]
+pub mod devtools;
 mod error;
 mod events;
 mod idle;
