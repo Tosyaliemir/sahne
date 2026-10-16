@@ -111,11 +111,11 @@ export function wordsPerSecond(line: Line): number {
 }
 
 /**
- * Harman mode: for each line, whether it belongs to a fast passage that
+ * Blend mode: for each line, whether it belongs to a fast passage that
  * should switch to the kinetic style. Neighbouring fast lines are merged, and
  * passages shorter than FAST_MIN_SECTION_MS are ignored.
  */
-export function harmanPlan(lines: readonly Line[]): boolean[] {
+export function blendPlan(lines: readonly Line[]): boolean[] {
   const fast = lines.map((l) => wordsPerSecond(l) >= FAST_WORDS_PER_SEC);
   const plan = new Array<boolean>(lines.length).fill(false);
   let i = 0;

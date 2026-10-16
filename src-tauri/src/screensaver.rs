@@ -34,21 +34,44 @@ trait Inhibitor {
     fn un_inhibit(&self, cookie: u32) -> zbus::Result<()>;
 }
 
+/// Lets [`settings_changed`] wake the screensaver loop.
+struct Control(tokio::sync::Notify);
+
+/// Call after settings change: turning the screensaver off while it is
+/// showing restores the windows right away instead of on the next input.
+pub fn settings_changed(app: &AppHandle, settings: &crate::settings::Settings) {
+    if !settings.screensaver_enabled {
+        if let Some(control) = app.try_state::<Control>() {
+            control.0.notify_one();
+        }
+    }
+}
+
 pub fn spawn(
     app: AppHandle,
     settings: Arc<SettingsStore>,
     player: Arc<PlayerState>,
     idle: Arc<IdleMonitor>,
 ) {
+    app.manage(Control(tokio::sync::Notify::new()));
     tauri::async_runtime::spawn(async move {
         let mut idle_rx = idle.subscribe();
         let mut before: Option<Before> = None;
         let mut awake: Option<KeepAwake> = None;
         loop {
-            if idle_rx.changed().await.is_err() {
-                return;
-            }
-            let is_idle = *idle_rx.borrow_and_update();
+            let disabled = {
+                let control = app.state::<Control>();
+                tokio::select! {
+                    changed = idle_rx.changed() => {
+                        if changed.is_err() {
+                            return;
+                        }
+                        false
+                    }
+                    () = control.0.notified() => true,
+                }
+            };
+            let is_idle = !disabled && *idle_rx.borrow_and_update();
             let s = settings.get();
             if is_idle && before.is_none() && s.screensaver_enabled && player.is_playing() {
                 tracing::info!("screensaver: showing");
@@ -153,7 +176,7 @@ impl KeepAwake {
     async fn start() -> Option<Self> {
         let conn = zbus::Connection::session().await.ok()?;
         let proxy = InhibitorProxy::new(&conn).await.ok()?;
-        match proxy.inhibit("Sahne", "Ekran koruyucu modu").await {
+        match proxy.inhibit("Sahne", "Screensaver mode").await {
             Ok(cookie) => Some(Self { conn, cookie }),
             Err(e) => {
                 tracing::warn!("could not keep the screen awake: {e}");
@@ -189,7 +212,7 @@ impl KeepAwake {
         use ::windows::Win32::System::Threading::{
             POWER_REQUEST_CONTEXT_SIMPLE_STRING, REASON_CONTEXT, REASON_CONTEXT_0,
         };
-        let mut reason: Vec<u16> = "Sahne ekran koruyucu modu\0".encode_utf16().collect();
+        let mut reason: Vec<u16> = "Sahne screensaver mode\0".encode_utf16().collect();
         let context = REASON_CONTEXT {
             Version: POWER_REQUEST_CONTEXT_VERSION,
             Flags: POWER_REQUEST_CONTEXT_SIMPLE_STRING,

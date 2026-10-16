@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { createReflectivePlate, reflectiveSettings } from "../../fx/reflectivePlate";
+  import { settings } from "../../stores/settings.svelte";
+  import { ui } from "../../stores/ui.svelte";
 
   /**
    * The cover set into a brushed metal plate. The plate mirrors a blurred
@@ -21,14 +23,25 @@
   let generation = $state(0);
 
   const options = $derived(
-    reflectiveSettings({ tint, radius, grayscale: 0.55, roughness: 0.32, blurStrength: 8, glare: 0.55, tiltStrength: 10 }),
+    reflectiveSettings({
+      tint,
+      radius,
+      grayscale: 0.55,
+      roughness: 0.32,
+      blurStrength: 8,
+      // More contrast: a calmer plate without moving highlights.
+      glare: ui.moreContrast ? 0.15 : 0.55,
+      warp: ui.moreContrast ? 0.2 : 0.6,
+      tiltStrength: 10,
+      maxScale: settings.current.performance_mode === "battery" ? 1 : 2,
+    }),
   );
   let fx: ReturnType<typeof createReflectivePlate> | null = null;
 
   $effect(() => {
     const gen = generation;
     if (!root || !body || !canvas || !media) return;
-    const els = { root, body, canvas, media };
+    const els = { root, body, canvas, image: media };
     const created = untrack(() =>
       createReflectivePlate(els, () => options, { isFirst: gen === 0, onRestore: () => generation++ }),
     );

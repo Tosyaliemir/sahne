@@ -7,31 +7,44 @@ use serde::{Deserialize, Serialize};
 
 use crate::paths::{self, Paths};
 
+// Stored values are English; the Turkish names used up to 0.1 are still
+// accepted through `alias`, so existing settings files keep working (R3).
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LyricsStyle {
-    Klasik,
-    Kinetik,
-    Sade,
+    #[serde(alias = "klasik")]
+    Classic,
+    #[serde(alias = "kinetik")]
+    Kinetic,
+    #[serde(alias = "sade")]
+    Minimal,
     /// Classic layout; words rise into place as they are sung.
-    Dalga,
+    #[serde(alias = "dalga")]
+    Wave,
     /// Classic, switching to kinetic for fast passages.
-    Harman,
+    #[serde(alias = "harman")]
+    Blend,
     /// Recent lines stacked into a wall that drifts in 3D.
-    Duvar,
+    #[serde(alias = "duvar")]
+    Wall,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BackdropStyle {
     /// WebGL: the artwork itself, slowly flowing and swirling.
-    Akiskan,
+    #[serde(alias = "akiskan")]
+    Fluid,
     /// Pre-blurred artwork with drifting color fields.
-    Bulanik,
+    #[serde(alias = "bulanik")]
+    Blurred,
     /// The sharp, original cover, slowly zooming, darkened for readability.
-    Kapak,
+    #[serde(alias = "kapak")]
+    Cover,
     /// A calm gradient made from the cover's colors.
-    Renk,
+    #[serde(alias = "renk")]
+    Color,
 }
 
 /// What the cover in the split view (and the no-lyrics screen) wears.
@@ -41,11 +54,25 @@ pub enum CoverEffect {
     /// Cover set into a brushed metal plate that mirrors it.
     Metal,
     /// Crackling light running around the cover's edge.
-    Elektrik,
-    /// No effect; also what a removed effect (e.g. an old "holo") reads as.
-    /// `serde(other)` must be on the last variant.
+    #[serde(alias = "elektrik")]
+    Electric,
+    /// No effect; also what a removed effect (e.g. an old "holo") or the
+    /// old "yok" reads as. `serde(other)` must be on the last variant.
     #[serde(other)]
-    Yok,
+    None,
+}
+
+/// How much GPU time the animated backdrop may use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PerformanceMode {
+    /// 30 fps, and a lower resolution if frames run slow; software
+    /// rendering falls back to the blurred backdrop.
+    Auto,
+    /// Full frame rate and resolution, even on software rendering.
+    Quality,
+    /// 20 fps at a lower resolution.
+    Battery,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,12 +86,15 @@ pub enum FontChoice {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Language {
+    /// Follow the system locale (Turkish if it is Turkish, else English).
+    System,
     Tr,
     En,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+/// Deserialized leniently (see [`Settings::from_value`]): an invalid or
+/// unknown value only resets that one field.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Settings {
     /// MPRIS short name to follow instead of Spotify, e.g. `vlc`.
     pub preferred_player: Option<String>,
@@ -95,13 +125,16 @@ pub struct Settings {
     /// Off by default: it delays the system lock screen.
     pub screensaver_keep_awake: bool,
     pub cover_effect: CoverEffect,
+    pub performance_mode: PerformanceMode,
+    /// Announce each new lyric line to screen readers (aria-live).
+    pub announce_lyrics: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             preferred_player: None,
-            lyrics_style: LyricsStyle::Klasik,
+            lyrics_style: LyricsStyle::Classic,
             font: FontChoice::Embedded,
             font_scale: 1.0,
             backdrop_blur: 0,
@@ -110,18 +143,48 @@ impl Default for Settings {
             mini_position: None,
             start_fullscreen: false,
             controls_hide_secs: 2,
-            language: Language::Tr,
-            backdrop_style: BackdropStyle::Akiskan,
+            language: Language::System,
+            backdrop_style: BackdropStyle::Fluid,
             edge_glow: false,
             screensaver_enabled: true,
             screensaver_minutes: 3,
             screensaver_keep_awake: false,
-            cover_effect: CoverEffect::Yok,
+            cover_effect: CoverEffect::None,
+            performance_mode: PerformanceMode::Auto,
+            announce_lyrics: false,
         }
     }
 }
 
+/// Applies `$field` from `map` onto `$s` when present and valid; otherwise
+/// records it in `$bad` and keeps the default.
+macro_rules! lenient_fields {
+    ($s:ident, $map:ident, $bad:ident; $($field:ident),+ $(,)?) => {
+        $(
+            if let Some(v) = $map.get(stringify!($field)) {
+                match serde_json::from_value(v.clone()) {
+                    Ok(x) => $s.$field = x,
+                    Err(_) => $bad.push(stringify!($field)),
+                }
+            }
+        )+
+    };
+}
+
 impl Settings {
+    /// Builds settings from JSON, field by field: a typo, a value from a
+    /// newer version or a downgrade resets only the affected fields, never
+    /// the whole file. Returns the names of fields that were discarded.
+    pub fn from_value(value: &serde_json::Value) -> (Self, Vec<&'static str>) {
+        let mut s = Self::default();
+        let mut bad = Vec::new();
+        let Some(map) = value.as_object() else {
+            return (s, vec!["<root>"]);
+        };
+        lenient_fields!(s, map, bad; preferred_player, lyrics_style, font, font_scale, backdrop_blur, backdrop_dim, global_offset_ms, mini_position, start_fullscreen, controls_hide_secs, language, backdrop_style, edge_glow, screensaver_enabled, screensaver_minutes, screensaver_keep_awake, cover_effect, performance_mode, announce_lyrics);
+        (s, bad)
+    }
+
     /// Clamps values a hand-edited file might have pushed out of range.
     pub fn sanitized(mut self) -> Self {
         self.screensaver_minutes = self.screensaver_minutes.clamp(1, 120);
@@ -143,6 +206,13 @@ impl Settings {
     }
 }
 
+impl<'de> Deserialize<'de> for Settings {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(d)?;
+        Ok(Self::from_value(&value).0)
+    }
+}
+
 pub struct SettingsStore {
     path: PathBuf,
     current: Mutex<Settings>,
@@ -151,8 +221,26 @@ pub struct SettingsStore {
 impl SettingsStore {
     pub fn load(paths: &Paths) -> Self {
         let path = paths.config.join("settings.json");
-        let current = match paths::read_json::<Settings>(&path) {
-            Ok(s) => s.sanitized(),
+        let current = match std::fs::read(&path) {
+            Ok(bytes) => {
+                let (settings, bad) = match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                    Ok(value) => Settings::from_value(&value),
+                    Err(_) => (Settings::default(), vec!["<file>"]),
+                };
+                if !bad.is_empty() {
+                    // Keep the user's file before anything overwrites it.
+                    let backup = path.with_extension("json.bak");
+                    tracing::warn!(
+                        "settings: ignoring invalid {} (original kept as {})",
+                        bad.join(", "),
+                        backup.display()
+                    );
+                    if let Err(e) = std::fs::write(&backup, &bytes) {
+                        tracing::warn!("could not back up settings: {e}");
+                    }
+                }
+                settings.sanitized()
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Settings::default(),
             Err(e) => {
                 tracing::warn!("ignoring unreadable settings ({e}); using defaults");
@@ -179,6 +267,28 @@ impl SettingsStore {
         settings
     }
 
+    /// Merges `patch` (a JSON object with some settings fields) onto the
+    /// current settings and persists the result. Fields not in the patch keep
+    /// their current value, so concurrent edits from the other window or from
+    /// the backend (e.g. the mini window's position) are not lost.
+    pub fn apply_patch(&self, patch: &serde_json::Map<String, serde_json::Value>) -> Settings {
+        let merged = {
+            let cur = self.lock();
+            let mut value = serde_json::to_value(&*cur).unwrap_or_default();
+            if let Some(obj) = value.as_object_mut() {
+                for (k, v) in patch {
+                    obj.insert(k.clone(), v.clone());
+                }
+            }
+            let (merged, bad) = Settings::from_value(&value);
+            if !bad.is_empty() {
+                tracing::warn!("settings patch: ignored invalid {}", bad.join(", "));
+            }
+            merged
+        };
+        self.set(merged)
+    }
+
     pub fn update(&self, f: impl FnOnce(&mut Settings)) -> Settings {
         let mut s = self.get();
         f(&mut s);
@@ -186,7 +296,7 @@ impl SettingsStore {
     }
 
     fn lock(&self) -> MutexGuard<'_, Settings> {
-        self.current.lock().unwrap_or_else(|e| e.into_inner())
+        crate::sync::lock(&self.current)
     }
 }
 
@@ -198,8 +308,8 @@ mod tests {
     #[test]
     fn missing_fields_fall_back_to_defaults() {
         let s: Settings =
-            serde_json::from_value(json!({"lyrics_style": "kinetik", "language": "en"})).unwrap();
-        assert_eq!(s.lyrics_style, LyricsStyle::Kinetik);
+            serde_json::from_value(json!({"lyrics_style": "kinetic", "language": "en"})).unwrap();
+        assert_eq!(s.lyrics_style, LyricsStyle::Kinetic);
         assert_eq!(s.language, Language::En);
         assert_eq!(s.font_scale, 1.0);
     }
@@ -231,10 +341,10 @@ mod tests {
         };
         let store = SettingsStore::load(&paths);
         assert_eq!(store.get(), Settings::default());
-        store.update(|s| s.lyrics_style = LyricsStyle::Sade);
+        store.update(|s| s.lyrics_style = LyricsStyle::Minimal);
         assert_eq!(
             SettingsStore::load(&paths).get().lyrics_style,
-            LyricsStyle::Sade
+            LyricsStyle::Minimal
         );
         std::fs::remove_dir_all(base).unwrap();
     }
@@ -243,12 +353,113 @@ mod tests {
     fn removed_cover_effect_falls_back_to_none() {
         let s: Settings =
             serde_json::from_value(json!({"cover_effect": "holo", "language": "en"})).unwrap();
-        assert_eq!(s.cover_effect, CoverEffect::Yok);
+        assert_eq!(s.cover_effect, CoverEffect::None);
         assert_eq!(s.language, Language::En);
     }
 
+    // R3: settings written by 0.1 (Turkish values) still load.
     #[test]
-    fn unknown_enum_value_is_rejected_not_panicking() {
-        assert!(serde_json::from_value::<Settings>(json!({"lyrics_style": "disco"})).is_err());
+    fn legacy_turkish_values_load() {
+        let styles = [
+            ("klasik", LyricsStyle::Classic),
+            ("kinetik", LyricsStyle::Kinetic),
+            ("sade", LyricsStyle::Minimal),
+            ("dalga", LyricsStyle::Wave),
+            ("harman", LyricsStyle::Blend),
+            ("duvar", LyricsStyle::Wall),
+        ];
+        for (old, new) in styles {
+            let (s, bad) = Settings::from_value(&json!({ "lyrics_style": old }));
+            assert_eq!((s.lyrics_style, bad.len()), (new, 0), "{old}");
+        }
+        let backdrops = [
+            ("akiskan", BackdropStyle::Fluid),
+            ("bulanik", BackdropStyle::Blurred),
+            ("kapak", BackdropStyle::Cover),
+            ("renk", BackdropStyle::Color),
+        ];
+        for (old, new) in backdrops {
+            let (s, bad) = Settings::from_value(&json!({ "backdrop_style": old }));
+            assert_eq!((s.backdrop_style, bad.len()), (new, 0), "{old}");
+        }
+        let effects = [
+            ("yok", CoverEffect::None),
+            ("metal", CoverEffect::Metal),
+            ("elektrik", CoverEffect::Electric),
+        ];
+        for (old, new) in effects {
+            let (s, bad) = Settings::from_value(&json!({ "cover_effect": old }));
+            assert_eq!((s.cover_effect, bad.len()), (new, 0), "{old}");
+        }
+        // Saved again, they are written in English.
+        let (s, _) = Settings::from_value(
+            &json!({"lyrics_style": "duvar", "backdrop_style": "kapak", "cover_effect": "elektrik"}),
+        );
+        let v = serde_json::to_value(&s).unwrap();
+        assert_eq!(
+            (&v["lyrics_style"], &v["backdrop_style"], &v["cover_effect"]),
+            (&json!("wall"), &json!("cover"), &json!("electric"))
+        );
+        // A saved "tr" or "en" is kept; new installs follow the system.
+        assert_eq!(
+            Settings::from_value(&json!({"language": "tr"})).0.language,
+            Language::Tr
+        );
+        assert_eq!(Settings::default().language, Language::System);
+    }
+
+    // C2: one bad field must not discard the others.
+    #[test]
+    fn invalid_field_keeps_the_rest() {
+        let (s, bad) = Settings::from_value(&json!({"lyrics_style": "disco", "font_scale": 1.4}));
+        assert_eq!(s.lyrics_style, LyricsStyle::Classic);
+        assert_eq!(s.font_scale, 1.4);
+        assert_eq!(bad, vec!["lyrics_style"]);
+        let s: Settings =
+            serde_json::from_value(json!({"font_scale": "big", "language": "en"})).unwrap();
+        assert_eq!(s.language, Language::En);
+        assert_eq!(s.font_scale, 1.0);
+    }
+
+    #[test]
+    fn unreadable_file_is_backed_up_before_overwrite() {
+        let base = std::env::temp_dir().join(format!("sahne-settings-bak-{}", std::process::id()));
+        let paths = Paths {
+            config: base.join("config"),
+            cache: base.join("cache"),
+        };
+        std::fs::create_dir_all(&paths.config).unwrap();
+        let file = paths.config.join("settings.json");
+        std::fs::write(&file, br#"{"lyrics_style": "disco", "font_scale": 1.4}"#).unwrap();
+        let store = SettingsStore::load(&paths);
+        assert_eq!(store.get().font_scale, 1.4);
+        let backup = paths.config.join("settings.json.bak");
+        assert!(std::fs::read_to_string(&backup).unwrap().contains("disco"));
+        std::fs::write(&file, b"{not json").unwrap();
+        let store = SettingsStore::load(&paths);
+        assert_eq!(store.get(), Settings::default());
+        assert_eq!(std::fs::read(&backup).unwrap(), b"{not json");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    // C3: a patch from one window must not undo changes made elsewhere.
+    #[test]
+    fn patch_merges_onto_current_state() {
+        let base =
+            std::env::temp_dir().join(format!("sahne-settings-patch-{}", std::process::id()));
+        let paths = Paths {
+            config: base.join("config"),
+            cache: base.join("cache"),
+        };
+        let store = SettingsStore::load(&paths);
+        store.update(|s| s.mini_position = Some((40, 60)));
+        let patch = json!({"lyrics_style": "wave", "edge_glow": true});
+        let saved = store.apply_patch(patch.as_object().unwrap());
+        assert_eq!(saved.mini_position, Some((40, 60)));
+        assert_eq!(saved.lyrics_style, LyricsStyle::Wave);
+        assert!(saved.edge_glow);
+        let bad = json!({"font_scale": "huge"});
+        assert_eq!(store.apply_patch(bad.as_object().unwrap()).font_scale, 1.0);
+        std::fs::remove_dir_all(base).unwrap();
     }
 }

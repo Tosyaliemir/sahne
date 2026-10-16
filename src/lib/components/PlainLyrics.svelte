@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { player } from "../stores/player.svelte";
+  import { onPlaybackFrame } from "../playbackFrames";
 
   let { text }: { text: string } = $props();
 
@@ -8,18 +9,16 @@
   let content: HTMLElement | undefined = $state();
 
   // Unsynced lyrics scroll slowly in proportion to how far the song has played.
-  onMount(() => {
-    let raf = requestAnimationFrame(function loop(now) {
+  onMount(() =>
+    onPlaybackFrame((now) => {
       const length = player.track?.length_ms ?? 0;
       if (viewport && content && length > 0) {
         const progress = Math.min(1, player.clock.position(now) / length);
         const travel = Math.max(0, content.offsetHeight - viewport.offsetHeight * 0.5);
         content.style.transform = `translateY(${-progress * travel}px)`;
       }
-      raf = requestAnimationFrame(loop);
-    });
-    return () => cancelAnimationFrame(raf);
-  });
+    }),
+  );
 </script>
 
 <div class="viewport" bind:this={viewport}>

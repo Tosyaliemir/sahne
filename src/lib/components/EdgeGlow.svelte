@@ -57,4 +57,7 @@
       opacity: 0;
     }
   }
+  :global(html.idle) .ring {
+    animation-play-state: paused;
+  }
 </style>

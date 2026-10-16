@@ -3,7 +3,7 @@ import {
   activeLineIndex,
   activeWordIndex,
   FAST_WORDS_PER_SEC,
-  harmanPlan,
+  blendPlan,
   interludeAt,
   lyricTime,
   MAX_MS_PER_CHAR,
@@ -13,7 +13,12 @@ import {
 } from "./timing";
 import type { Line } from "./types";
 
-const line = (start_ms: number, end_ms: number, text = "x"): Line => ({ start_ms, end_ms, text, words: null });
+const line = (start_ms: number, end_ms: number, text = "x"): Line => ({
+  start_ms,
+  end_ms,
+  text,
+  words: null,
+});
 
 describe("activeLineIndex", () => {
   const lines = [line(1000, 2000), line(2000, 5000), line(5000, 9000)];
@@ -77,7 +82,7 @@ describe("wordTimings", () => {
   });
 
   it("is contiguous and ordered", () => {
-    const w = wordTimings(line(5000, 8000, "We're no strangers to love"));
+    const w = wordTimings(line(5000, 8000, "Sabah güneşi ağır ağır doğuyor"));
     for (let i = 1; i < w.length; i++) expect(w[i].start_ms).toBe(w[i - 1].end_ms);
     expect(w[0].start_ms).toBe(5000);
     expect(w[w.length - 1].end_ms).toBeLessThanOrEqual(8000);
@@ -105,7 +110,12 @@ describe("word progress", () => {
 });
 
 describe("interludeAt", () => {
-  const lines = [line(8000, 10_000, "first"), line(10_000, 20_000, ""), line(20_000, 22_000, "second"), line(22_000, 23_000, "")];
+  const lines = [
+    line(8000, 10_000, "first"),
+    line(10_000, 20_000, ""),
+    line(20_000, 22_000, "second"),
+    line(22_000, 23_000, ""),
+  ];
   it("detects a long intro", () => {
     expect(interludeAt(lines, 4000)).toEqual({ start_ms: 0, end_ms: 8000, progress: 0.5 });
   });
@@ -119,9 +129,10 @@ describe("interludeAt", () => {
   });
 });
 
-describe("harmanPlan", () => {
+describe("blendPlan", () => {
   // 12 words in 2.5 s ≈ 4.8 words/s: a fast rap line.
-  const fastLine = (s: number) => line(s, s + 2500, "one two three four five six seven eight nine ten eleven twelve");
+  const fastLine = (s: number) =>
+    line(s, s + 2500, "one two three four five six seven eight nine ten eleven twelve");
   // 5 words over 4 s: ordinary singing.
   const slowLine = (s: number) => line(s, s + 4000, "we are never ever getting");
 
@@ -132,12 +143,19 @@ describe("harmanPlan", () => {
   });
 
   it("switches for a sustained fast passage only", () => {
-    const lines = [slowLine(0), fastLine(4000), fastLine(6500), slowLine(9000), fastLine(13000), slowLine(15500)];
+    const lines = [
+      slowLine(0),
+      fastLine(4000),
+      fastLine(6500),
+      slowLine(9000),
+      fastLine(13000),
+      slowLine(15500),
+    ];
     // Two fast lines (5 s) form a passage; the lone fast line (2.5 s) does not.
-    expect(harmanPlan(lines)).toEqual([false, true, true, false, false, false]);
+    expect(blendPlan(lines)).toEqual([false, true, true, false, false, false]);
   });
 
   it("handles empty input", () => {
-    expect(harmanPlan([])).toEqual([]);
+    expect(blendPlan([])).toEqual([]);
   });
 });

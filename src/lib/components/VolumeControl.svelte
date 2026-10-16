@@ -26,7 +26,12 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    const step = e.key === "ArrowRight" || e.key === "ArrowUp" ? 0.05 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -0.05 : 0;
+    const step =
+      e.key === "ArrowRight" || e.key === "ArrowUp"
+        ? 0.05
+        : e.key === "ArrowLeft" || e.key === "ArrowDown"
+          ? -0.05
+          : 0;
     if (!step) return;
     e.preventDefault();
     e.stopPropagation();
@@ -47,11 +52,30 @@
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 9h4l5-4v14l-5-4H4z" />
         {#if icon === "mute"}
-          <path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+          <path
+            d="M16 9l5 6M21 9l-5 6"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            fill="none"
+          />
         {:else}
-          <path d="M16 9.5a3.5 3.5 0 0 1 0 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+          <path
+            d="M16 9.5a3.5 3.5 0 0 1 0 5"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            fill="none"
+          />
           {#if icon !== "low"}
-            <path d="M18.5 7a7 7 0 0 1 0 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity={icon === "high" ? 1 : 0.35} />
+            <path
+              d="M18.5 7a7 7 0 0 1 0 10"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              fill="none"
+              opacity={icon === "high" ? 1 : 0.35}
+            />
           {/if}
         {/if}
       </svg>
@@ -100,7 +124,9 @@
     color: var(--text);
     opacity: 0.8;
     cursor: pointer;
-    transition: opacity 150ms, background-color 150ms;
+    transition:
+      opacity 150ms,
+      background-color 150ms;
   }
   button:hover {
     opacity: 1;
@@ -164,7 +190,9 @@
     font-variant-numeric: tabular-nums;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 150ms, transform 150ms;
+    transition:
+      opacity 150ms,
+      transform 150ms;
   }
   .track:hover .tip,
   .dragging .tip {

@@ -22,6 +22,12 @@ pub struct Line {
 /// How long the last line lasts when the track length is unknown.
 const LAST_LINE_MS: u64 = 5_000;
 
+/// LRC comes from a crowd-sourced database, so it is untrusted: stamps past
+/// this many minutes are treated as malformed rather than overflowing.
+const MAX_MINUTES: i64 = 999;
+/// `[offset:]` values beyond an hour are nonsense; clamp them.
+const MAX_OFFSET_MS: i64 = 3_600_000;
+
 /// Parses LRC text. `duration_ms` (0 if unknown) closes the last line.
 pub fn parse(input: &str, duration_ms: u64) -> Vec<Line> {
     let mut offset_ms: i64 = 0;
@@ -38,7 +44,11 @@ pub fn parse(input: &str, duration_ms: u64) -> Vec<Line> {
             if let Some(ms) = parse_timestamp(tag) {
                 stamps.push(ms);
             } else if let Some(value) = tag.strip_prefix("offset:") {
-                offset_ms = value.trim().parse().unwrap_or(0);
+                offset_ms = value
+                    .trim()
+                    .parse::<i64>()
+                    .unwrap_or(0)
+                    .clamp(-MAX_OFFSET_MS, MAX_OFFSET_MS);
             } else if stamps.is_empty() && is_metadata_tag(tag) {
                 // [ar:...], [ti:...] etc. carry no lyrics.
             } else {
@@ -56,7 +66,7 @@ pub fn parse(input: &str, duration_ms: u64) -> Vec<Line> {
     }
 
     // A positive offset makes lyrics appear earlier.
-    let shift = |t: i64| u64::try_from(t - offset_ms).unwrap_or(0);
+    let shift = |t: i64| u64::try_from(t.saturating_sub(offset_ms)).unwrap_or(0);
     raw.sort_by_key(|(start, ..)| *start);
 
     let mut lines: Vec<Line> = raw
@@ -87,7 +97,7 @@ pub fn parse(input: &str, duration_ms: u64) -> Vec<Line> {
         line.end_ms = match next_start {
             Some(n) => n.max(line.start_ms),
             None if duration_ms > line.start_ms => duration_ms,
-            None => line.start_ms + LAST_LINE_MS,
+            None => line.start_ms.saturating_add(LAST_LINE_MS),
         };
         let line_end = line.end_ms;
         if let Some(words) = &mut line.words {
@@ -115,6 +125,9 @@ fn is_metadata_tag(tag: &str) -> bool {
 fn parse_timestamp(tag: &str) -> Option<i64> {
     let (min, rest) = tag.split_once(':')?;
     let min: i64 = parse_digits(min)?;
+    if min > MAX_MINUTES {
+        return None;
+    }
     let (sec, frac) = match rest.find(['.', ':']) {
         Some(i) => (&rest[..i], Some(&rest[i + 1..])),
         None => (rest, None),
@@ -213,14 +226,14 @@ mod tests {
 
     #[test]
     fn parses_basic_lines() {
-        let lrc = "[ar:Rick Astley]\n[ti:Never Gonna Give You Up]\n\
-                   [00:18.68] We're no strangers to love\n[00:22.84]You know the rules and so do I\n";
+        let lrc = "[ar:Örnek Sanatçı]\n[ti:Işıklı Günler]\n\
+                   [00:18.68] Çiçekler sabahı bekliyor\n[00:22.84]Gölgede üşüyen İstanbul\n";
         let lines = parse(lrc, 30_000);
         assert_eq!(
             starts(&lines),
             vec![
-                (18_680, "We're no strangers to love"),
-                (22_840, "You know the rules and so do I")
+                (18_680, "Çiçekler sabahı bekliyor"),
+                (22_840, "Gölgede üşüyen İstanbul")
             ]
         );
         assert_eq!(lines[0].end_ms, 22_840);
@@ -326,5 +339,41 @@ mod tests {
     fn turkish_text_survives() {
         let lines = parse("[00:01.00]Şımarık, çığlık; ölürüm İstanbul'a", 0);
         assert_eq!(lines[0].text, "Şımarık, çığlık; ölürüm İstanbul'a");
+    }
+
+    // S8: crowd-sourced LRC is untrusted; arithmetic must not overflow.
+    #[test]
+    fn huge_minutes_do_not_overflow() {
+        let lines = parse("[99999999999999999:00.00]x\n[00:01.00]y", 0);
+        assert_eq!(starts(&lines), vec![(1000, "y")]);
+    }
+
+    #[test]
+    fn extreme_offset_does_not_overflow() {
+        let lines = parse("[offset:-9223372036854775808]\n[00:01.00]y", 0);
+        assert_eq!(lines.len(), 1);
+        let lines = parse("[offset:9223372036854775807]\n[00:01.00]y", 0);
+        assert_eq!(lines[0].start_ms, 0);
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn never_panics_and_keeps_invariants(input in "\\PC{0,400}", duration in 0u64..20_000_000) {
+            let lines = parse(&input, duration);
+            for pair in lines.windows(2) {
+                proptest::prop_assert!(pair[0].start_ms <= pair[1].start_ms);
+            }
+            for l in &lines {
+                proptest::prop_assert!(l.end_ms >= l.start_ms);
+                for w in l.words.iter().flatten() {
+                    proptest::prop_assert!(w.end_ms >= w.start_ms);
+                }
+            }
+        }
+
+        #[test]
+        fn never_panics_on_tag_soup(input in r"(\[[0-9:.+-]{0,24}\]|<[0-9:.]{0,24}>|\[offset:-?[0-9]{0,22}\]|[a-z ]{0,4}|\n){0,40}") {
+            let _ = parse(&input, 0);
+        }
     }
 }

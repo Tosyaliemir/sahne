@@ -45,11 +45,7 @@ export class PlaybackClock {
     const predicted = this.position(now);
     const diff = s.position_ms - predicted;
     const soft =
-      !s.hard &&
-      s.playing &&
-      this.playing &&
-      s.rate === this.rate &&
-      Math.abs(diff) <= HARD_THRESHOLD_MS;
+      !s.hard && s.playing && this.playing && s.rate === this.rate && Math.abs(diff) <= HARD_THRESHOLD_MS;
 
     this.anchorPos = s.position_ms;
     this.anchorTime = now;

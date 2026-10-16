@@ -40,7 +40,12 @@ fn default_tracks() -> Vec<Track> {
         art_url: None,
     };
     vec![
-        t("Rick Astley", "Never Gonna Give You Up", "Whenever You Need Somebody", 213.6),
+        t(
+            "Rick Astley",
+            "Never Gonna Give You Up",
+            "Whenever You Need Somebody",
+            213.6,
+        ),
         t("Queen", "Bohemian Rhapsody", "A Night At The Opera", 354.3),
         t("Tarkan", "Şımarık", "Ölürüm Sana", 234.0),
     ]
@@ -49,9 +54,13 @@ fn default_tracks() -> Vec<Track> {
 fn parse_track(spec: &str) -> Result<Track, String> {
     let parts: Vec<&str> = spec.split('|').collect();
     if parts.len() < 4 {
-        return Err(format!("expected Artist|Title|Album|seconds[|artUrl], got {spec:?}"));
+        return Err(format!(
+            "expected Artist|Title|Album|seconds[|artUrl], got {spec:?}"
+        ));
     }
-    let secs: f64 = parts[3].parse().map_err(|_| format!("bad seconds in {spec:?}"))?;
+    let secs: f64 = parts[3]
+        .parse()
+        .map_err(|_| format!("bad seconds in {spec:?}"))?;
     Ok(Track {
         artist: parts[0].into(),
         title: parts[1].into(),
@@ -72,7 +81,11 @@ struct Player {
 
 impl Player {
     fn position_us(&self) -> i64 {
-        let elapsed = if self.playing { self.anchor.elapsed().as_micros() as i64 } else { 0 };
+        let elapsed = if self.playing {
+            self.anchor.elapsed().as_micros() as i64
+        } else {
+            0
+        };
         (self.anchor_pos_us + elapsed).min(self.track().length_us)
     }
 
@@ -111,31 +124,46 @@ impl Player {
 
 #[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl Player {
-    async fn play_pause(&mut self, #[zbus(signal_emitter)] e: SignalEmitter<'_>) -> zbus::fdo::Result<()> {
+    async fn play_pause(
+        &mut self,
+        #[zbus(signal_emitter)] e: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         self.set_playing(!self.playing);
         self.playback_status_changed(&e).await?;
         Ok(())
     }
 
-    async fn play(&mut self, #[zbus(signal_emitter)] e: SignalEmitter<'_>) -> zbus::fdo::Result<()> {
+    async fn play(
+        &mut self,
+        #[zbus(signal_emitter)] e: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         self.set_playing(true);
         self.playback_status_changed(&e).await?;
         Ok(())
     }
 
-    async fn pause(&mut self, #[zbus(signal_emitter)] e: SignalEmitter<'_>) -> zbus::fdo::Result<()> {
+    async fn pause(
+        &mut self,
+        #[zbus(signal_emitter)] e: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         self.set_playing(false);
         self.playback_status_changed(&e).await?;
         Ok(())
     }
 
-    async fn next(&mut self, #[zbus(signal_emitter)] e: SignalEmitter<'_>) -> zbus::fdo::Result<()> {
+    async fn next(
+        &mut self,
+        #[zbus(signal_emitter)] e: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         self.go(1);
         self.announce_track(&e).await?;
         Ok(())
     }
 
-    async fn previous(&mut self, #[zbus(signal_emitter)] e: SignalEmitter<'_>) -> zbus::fdo::Result<()> {
+    async fn previous(
+        &mut self,
+        #[zbus(signal_emitter)] e: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         // Like real players: restart the track unless we are near its beginning.
         if self.position_us() > 3_000_000 {
             self.set_pos(0);
@@ -147,7 +175,11 @@ impl Player {
         Ok(())
     }
 
-    async fn seek(&mut self, offset_us: i64, #[zbus(signal_emitter)] e: SignalEmitter<'_>) -> zbus::fdo::Result<()> {
+    async fn seek(
+        &mut self,
+        offset_us: i64,
+        #[zbus(signal_emitter)] e: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         self.set_pos(self.position_us() + offset_us);
         Self::seeked(&e, self.anchor_pos_us).await?;
         Ok(())
@@ -172,7 +204,11 @@ impl Player {
 
     #[zbus(property)]
     fn playback_status(&self) -> &str {
-        if self.playing { "Playing" } else { "Paused" }
+        if self.playing {
+            "Playing"
+        } else {
+            "Paused"
+        }
     }
 
     #[zbus(property)]
@@ -199,7 +235,11 @@ impl Player {
 
     #[zbus(property(emits_changed_signal = "false"))]
     fn position(&self) -> i64 {
-        if self.zero_position { 0 } else { self.position_us() }
+        if self.zero_position {
+            0
+        } else {
+            self.position_us()
+        }
     }
 
     #[zbus(property)]
@@ -294,7 +334,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracks = default_tracks();
     }
 
-    let player = Player { tracks, index: 0, playing, anchor_pos_us: 0, anchor: Instant::now(), zero_position };
+    let player = Player {
+        tracks,
+        index: 0,
+        playing,
+        anchor_pos_us: 0,
+        anchor: Instant::now(),
+        zero_position,
+    };
     let first = player.track().clone();
     let conn = connection::Builder::session()?
         .name(BUS_NAME)?
@@ -302,7 +349,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .serve_at(PATH, player)?
         .build()
         .await?;
-    println!("{BUS_NAME} ready{}", if zero_position { " (Position always 0)" } else { "" });
+    println!(
+        "{BUS_NAME} ready{}",
+        if zero_position {
+            " (Position always 0)"
+        } else {
+            ""
+        }
+    );
     println!("▶ {} – {}", first.artist, first.title);
     println!("commands: p play/pause, n next, b previous, s <seconds> seek, q quit");
 
@@ -355,4 +409,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn player(playing: bool) -> Player {
+        Player {
+            tracks: default_tracks(),
+            index: 0,
+            playing,
+            anchor_pos_us: 0,
+            anchor: Instant::now(),
+            zero_position: false,
+        }
+    }
+
+    #[test]
+    fn parses_track_specs() {
+        let t = parse_track("Örnek Sanatçı|Işıklı Günler|Deneme|213.5|file:///tmp/c.png").unwrap();
+        assert_eq!(
+            (t.artist.as_str(), t.title.as_str()),
+            ("Örnek Sanatçı", "Işıklı Günler")
+        );
+        assert_eq!(t.length_us, 213_500_000);
+        assert_eq!(t.art_url.as_deref(), Some("file:///tmp/c.png"));
+        assert!(parse_track("a|b|c").is_err());
+        assert!(parse_track("a|b|c|long").is_err());
+    }
+
+    #[test]
+    fn seeks_are_clamped_and_tracks_wrap() {
+        let mut p = player(false);
+        p.set_pos(-5);
+        assert_eq!(p.position_us(), 0);
+        p.set_pos(i64::MAX);
+        assert_eq!(p.position_us(), p.track().length_us);
+        p.go(-1);
+        assert_eq!(p.index, p.tracks.len() - 1);
+        assert_eq!(p.position_us(), 0);
+        p.go(1);
+        assert_eq!(p.index, 0);
+    }
+
+    #[test]
+    fn paused_position_stands_still() {
+        let mut p = player(true);
+        p.set_pos(1_000_000);
+        p.set_playing(false);
+        let before = p.position_us();
+        std::thread::sleep(Duration::from_millis(20));
+        assert_eq!(p.position_us(), before);
+    }
 }

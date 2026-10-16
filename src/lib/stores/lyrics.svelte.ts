@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { frames } from "../frames";
 import { listen } from "@tauri-apps/api/event";
 import type { LyricsLoaded } from "../types";
 import { player } from "./player.svelte";
@@ -23,6 +24,7 @@ class LyricsStore {
   async start(): Promise<() => void> {
     const unlisten = await listen<LyricsLoaded>("lyrics-loaded", (e) => {
       this.current = e.payload;
+      frames.wake();
     });
     try {
       const snap = await invoke<LyricsLoaded | null>("get_lyrics");
@@ -39,6 +41,7 @@ class LyricsStore {
     if (!c) return;
     const offset_ms = c.offset_ms + deltaMs;
     this.current = { ...c, offset_ms };
+    frames.wake();
     invoke("set_lyrics_offset", { trackId: c.track_id, offsetMs: offset_ms }).catch((err) =>
       console.warn("set_lyrics_offset failed", err),
     );

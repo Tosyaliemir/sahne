@@ -1,14 +1,16 @@
 <script lang="ts">
+  import { registerAt, registerIn } from "../registry";
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { onPlaybackFrame } from "../playbackFrames";
   import { lyrics } from "../stores/lyrics.svelte";
   import { activeLineIndex, INTERLUDE_MIN_MS, lyricTime, wordTimings } from "../timing";
   import { LineFiller } from "../wordFill";
   import Interlude from "./Interlude.svelte";
   import FillWord from "./FillWord.svelte";
 
-  let { data, style }: { data: LyricsLoaded; style: "klasik" | "sade" | "dalga" } = $props();
+  let { data, style }: { data: LyricsLoaded; style: "classic" | "minimal" | "wave" } = $props();
 
   /** Lines as displayed: a long intro becomes its own (empty) line. */
   const lines: Line[] = $derived.by(() => {
@@ -25,25 +27,6 @@
   const lineEls: (HTMLElement | undefined)[] = [];
   const wordEls: HTMLElement[][] = [];
   const dotsEls: (HTMLElement | undefined)[] = [];
-
-  /** Attachment that stores `el` in `list[i]` while it is mounted. */
-  function register<T extends HTMLElement>(list: (T | undefined)[], i: number) {
-    return (el: T) => {
-      list[i] = el;
-      return () => {
-        if (list[i] === el) list[i] = undefined;
-      };
-    };
-  }
-
-  function registerWord(i: number, j: number) {
-    return (el: HTMLElement) => {
-      (wordEls[i] ??= [])[j] = el;
-      return () => {
-        if (wordEls[i]?.[j] === el) delete wordEls[i][j];
-      };
-    };
-  }
 
   /** Lines further than this from the active one are not laid out at all. */
   const WINDOW = 3;
@@ -121,14 +104,11 @@
   }
 
   onMount(() => {
-    let raf = requestAnimationFrame(function loop(now) {
-      frame(now);
-      raf = requestAnimationFrame(loop);
-    });
+    const stop = onPlaybackFrame(frame);
     const onResize = () => layout();
     window.addEventListener("resize", onResize);
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       window.removeEventListener("resize", onResize);
     };
   });
@@ -141,29 +121,35 @@
 <div class="stage {style}">
   {#each lines as line, i (i)}
     {@const d = i - active}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div
-      class="line"
-      class:active={d === 0}
-      class:near={Math.abs(d) === 1}
-      class:past={d < 0}
-      class:far={Math.abs(d) > WINDOW}
-      {@attach register(lineEls, i)}
-      style:transform={transforms[i]}
-      role="button"
-      tabindex="-1"
-      onclick={() => seekTo(line)}
-    >
-      {#if isBreak(i)}
-        <div class="dots-wrap" {@attach register(dotsEls, i)}>
-          <Interlude />
-        </div>
-      {:else}
-        {#each words[i] as w, j (j)}
-          <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
-        {/each}
-      {/if}
-    </div>
+    <!-- Only the visible window (plus one line either side, so lines slide
+         in already laid out) is in the DOM; a song can have 100+ lines. -->
+    {#if Math.abs(i - Math.max(0, active)) <= WINDOW + 1}
+      <div
+        class="line"
+        class:active={d === 0}
+        class:near={Math.abs(d) === 1}
+        class:past={d < 0}
+        class:far={Math.abs(d) > WINDOW}
+        {@attach registerAt(lineEls, i)}
+        style:transform={transforms[i]}
+        role="button"
+        tabindex={Math.abs(d) <= 1 ? 0 : -1}
+        onclick={() => seekTo(line)}
+        onkeydown={(e) => {
+          if (e.key === "Enter") seekTo(line);
+        }}
+      >
+        {#if isBreak(i)}
+          <div class="dots-wrap" {@attach registerAt(dotsEls, i)}>
+            <Interlude />
+          </div>
+        {:else}
+          {#each words[i] as w, j (j)}
+            <FillWord text={w.text} attach={registerIn(wordEls, i, j)} />{" "}
+          {/each}
+        {/if}
+      </div>
+    {/if}
   {/each}
 </div>
 
@@ -195,13 +181,13 @@
   .line.far {
     display: none;
   }
-  .klasik .line,
-  .dalga .line {
+  .classic .line,
+  .wave .line {
     transition:
       transform 480ms cubic-bezier(0.34, 1.32, 0.64, 1),
       opacity 380ms ease;
   }
-  .sade .line {
+  .minimal .line {
     transition: opacity 200ms linear;
   }
   /* Only the lines that move or fill get their own GPU layer. */
@@ -222,28 +208,34 @@
     opacity: 0.75;
   }
 
-  .klasik .active :global(.fw.on) {
+  .classic .active :global(.fw.on) {
     animation: pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .klasik .active :global(.fw.glow .fill),
-  .dalga .active :global(.fw.glow .fill) {
+  .classic .active :global(.fw.glow .fill),
+  .wave .active :global(.fw.glow .fill) {
     text-shadow: 0 0 0.22em color-mix(in srgb, var(--accent) 80%, transparent);
   }
-  /* Dalga: words wait slightly lowered and rise into place, one after
+  /* Wave: words wait slightly lowered and rise into place, one after
      another, as they are sung, so a wave runs along the line. */
-  .dalga .active :global(.fw) {
+  .wave .active :global(.fw) {
     transform: translate3d(0, 0.16em, 0) scale(0.94);
     transition: transform 650ms cubic-bezier(0.34, 1.56, 0.64, 1);
     will-change: transform;
   }
-  .dalga .active :global(.fw.on) {
+  .wave .active :global(.fw.on) {
     transform: none;
   }
 
   @keyframes pop {
-    0% { transform: translateY(0); }
-    35% { transform: translateY(-4px); }
-    100% { transform: translateY(0); }
+    0% {
+      transform: translateY(0);
+    }
+    35% {
+      transform: translateY(-4px);
+    }
+    100% {
+      transform: translateY(0);
+    }
   }
 
   .dots-wrap {

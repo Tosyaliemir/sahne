@@ -3,6 +3,7 @@
   import { backOut, cubicIn } from "svelte/easing";
   import type { LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { onPlaybackFrame } from "../playbackFrames";
   import { lyrics } from "../stores/lyrics.svelte";
   import { activeLineIndex, interludeAt, lyricTime, wordProgress, wordTimings } from "../timing";
   import Interlude from "./Interlude.svelte";
@@ -69,13 +70,11 @@
     }
   }
 
-  onMount(() => {
-    let raf = requestAnimationFrame(function loop(now) {
+  onMount(() =>
+    onPlaybackFrame((now) => {
       frame(now);
-      raf = requestAnimationFrame(loop);
-    });
-    return () => cancelAnimationFrame(raf);
-  });
+    }),
+  );
 
   // Alternate the tilt so consecutive words don't all lean the same way.
   function enter(_node: Element, { index }: { index: number }) {
@@ -100,7 +99,9 @@
 
   const word = $derived(current >= 0 ? flat[current] : null);
   const fontSize = $derived(
-    word ? `min(calc(clamp(4rem, 13cqw, 13rem) * var(--lyrics-scale, 1)), calc(170cqw / ${Math.max(4, [...word.text].length)}))` : "",
+    word
+      ? `min(calc(clamp(4rem, 13cqw, 13rem) * var(--lyrics-scale, 1)), calc(170cqw / ${Math.max(4, [...word.text].length)}))`
+      : "",
   );
 </script>
 

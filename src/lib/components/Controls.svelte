@@ -44,7 +44,10 @@
     color: var(--text);
     opacity: 0.8;
     cursor: pointer;
-    transition: opacity 150ms, transform 150ms, background-color 150ms;
+    transition:
+      opacity 150ms,
+      transform 150ms,
+      background-color 150ms;
   }
   button:hover {
     opacity: 1;

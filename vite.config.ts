@@ -1,5 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { svelteTesting } from "@testing-library/svelte/vite";
+import pkg from "./package.json" with { type: "json" };
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -7,7 +9,9 @@ export default defineConfig(({ command }) => ({
   // In dev, Vite 8 serves the raw .svelte source for the plugin's virtual
   // `?svelte&type=style` modules, so scoped styles break. Injecting CSS from JS
   // avoids those modules; production builds still extract a stylesheet.
-  plugins: [svelte({ emitCss: command === "build" })],
+  // svelteTesting: browser builds of Svelte and auto-cleanup for component tests.
+  plugins: [svelte({ emitCss: command === "build" }), ...(process.env.VITEST ? [svelteTesting()] : [])],
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   // Keep Rust compiler errors visible in `tauri dev`.
   clearScreen: false,
   server: {
@@ -21,6 +25,16 @@ export default defineConfig(({ command }) => ({
     target: "es2022",
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "dev-tools/**/*.test.ts"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,svelte}"],
+      exclude: ["src/**/*.test.ts", "src/test/**"],
+      reporter: ["text-summary", "lcov", "json-summary"],
+    },
+    // happy-dom rejects the `finished` promise of Web Animations that Svelte
+    // cancels when a component with a running transition is removed.
+    onUnhandledError: (error) =>
+      !(error.name === "AbortError" && /animation was canceled/.test(error.message)),
   },
 }));

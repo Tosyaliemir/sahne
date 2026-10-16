@@ -1,0 +1,47 @@
+# Flatpak manifest (CI3: prepared, not built or published yet).
+#
+# It repackages the .deb from a GitHub release, the approach in Tauri's
+# Flatpak guide. Before building, set the release URL and its sha256 below.
+#   flatpak-builder --user --install build packaging/flatpak/io.github.tosyaliemir.Sahne.yml
+# Flathub requires building from source instead; that needs vendored cargo
+# and npm sources (flatpak-builder-tools) and is not done yet.
+id: io.github.tosyaliemir.Sahne
+# The GNOME runtime provides webkit2gtk-4.1, which Tauri 2 uses.
+runtime: org.gnome.Platform
+runtime-version: "48"
+sdk: org.gnome.Sdk
+command: sahne
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # LRCLIB and artwork downloads.
+  - --share=network
+  # Read and control media players.
+  - --talk-name=org.mpris.MediaPlayer2.*
+  # Idle detection and keeping the screen on (screensaver mode).
+  - --talk-name=org.freedesktop.ScreenSaver
+  - --talk-name=org.gnome.Mutter.IdleMonitor
+  # On NVIDIA with Wayland, WebKitGTK needs this (Sahne sets it itself when
+  # it can see the driver, which it cannot from inside the sandbox).
+  - --env=__NV_DISABLE_EXPLICIT_SYNC=1
+modules:
+  - name: sahne
+    buildsystem: simple
+    sources:
+      - type: file
+        url: https://github.com/Tosyaliemir/sahne/releases/download/v0.2.0/Sahne_0.2.0_amd64.deb
+        sha256: 0000000000000000000000000000000000000000000000000000000000000000
+        dest-filename: sahne.deb
+        only-arches: [x86_64]
+      - type: file
+        path: ../linux/io.github.tosyaliemir.Sahne.metainfo.xml
+    build-commands:
+      - ar -x sahne.deb
+      - tar -xf data.tar.gz
+      - install -Dm755 usr/bin/sahne /app/bin/sahne
+      - install -Dm644 usr/share/applications/Sahne.desktop /app/share/applications/io.github.tosyaliemir.Sahne.desktop
+      - desktop-file-edit --set-icon=io.github.tosyaliemir.Sahne /app/share/applications/io.github.tosyaliemir.Sahne.desktop
+      - for size in 32x32 64x64 128x128 512x512; do install -Dm644 usr/share/icons/hicolor/$size/apps/sahne.png /app/share/icons/hicolor/$size/apps/io.github.tosyaliemir.Sahne.png; done
+      - install -Dm644 io.github.tosyaliemir.Sahne.metainfo.xml /app/share/metainfo/io.github.tosyaliemir.Sahne.metainfo.xml

@@ -5,11 +5,24 @@ import App from "./App.svelte";
 import MiniApp from "./MiniApp.svelte";
 import "./app.css";
 
-function report(level: "error" | "warn", message: string) {
+import { LogLimiter } from "./lib/logLimit";
+
+// Every warning crosses IPC into the backend log; a per-frame warning must
+// not flood it. At most 20 messages per 10 s, repeats folded into a count.
+const limiter = new LogLimiter((level, message) => {
   invoke("frontend_log", { level, message }).catch(() => {});
+});
+function report(level: "error" | "warn", message: string) {
+  limiter.log(level, message);
 }
 window.addEventListener("error", (e) => report("error", `${e.message} at ${e.filename}:${e.lineno}`));
-window.addEventListener("unhandledrejection", (e) => report("error", `unhandled rejection: ${String(e.reason)}`));
+window.addEventListener("unhandledrejection", (e) =>
+  report("error", `unhandled rejection: ${String(e.reason)}`),
+);
+// The CSP (tauri.conf.json) should never fire; if it does, it's a bug to see in the log.
+document.addEventListener("securitypolicyviolation", (e) =>
+  report("error", `CSP blocked ${e.blockedURI || "inline"} (${e.violatedDirective})`),
+);
 const warn = console.warn.bind(console);
 console.warn = (...args: unknown[]) => {
   warn(...args);

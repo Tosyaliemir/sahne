@@ -1,14 +1,17 @@
 <script lang="ts">
+  import { registerAt, registerIn } from "../registry";
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { onPlaybackFrame } from "../playbackFrames";
   import { lyrics } from "../stores/lyrics.svelte";
-  import { activeLineIndex, lyricTime, wordTimings } from "../timing";
+  import { activeLineIndex, INTERLUDE_MIN_MS, lyricTime, wordTimings } from "../timing";
   import { LineFiller } from "../wordFill";
   import FillWord from "./FillWord.svelte";
+  import Interlude from "./Interlude.svelte";
 
   /**
-   * "Duvar": the last few lines stacked into a wall of big type that hangs
+   * "Wall": the last few lines stacked into a wall of big type that hangs
    * at an angle in 3D and slowly sways. Each new line pushes the wall up;
    * older lines recede into the distance and fade.
    */
@@ -26,7 +29,20 @@
    */
   const ENTER_TRANSFORM = "translate3d(0, 45cqh, 0)";
 
-  const lines: Line[] = $derived(data.lines.filter((l) => l.text.trim() !== ""));
+  /** A long empty line (or a long intro) is an instrumental break. */
+  const isBreakLine = (l: Line) => l.text.trim() === "" && l.end_ms - l.start_ms >= INTERLUDE_MIN_MS;
+  /**
+   * Sung lines plus instrumental breaks, which show the same breathing dots
+   * as the other styles. Short empty lines would only add gaps to the wall.
+   */
+  const lines: Line[] = $derived.by(() => {
+    const first = data.lines[0];
+    const all =
+      first && first.start_ms >= INTERLUDE_MIN_MS
+        ? [{ start_ms: 0, end_ms: first.start_ms, text: "", words: null }, ...data.lines]
+        : data.lines;
+    return all.filter((l) => l.text.trim() !== "" || isBreakLine(l));
+  });
   const words: Word[][] = $derived(lines.map(wordTimings));
   /**
    * Uppercasing depends on language: Turkish maps i → İ, English i → I. The
@@ -37,28 +53,13 @@
 
   let active = $state(-1);
   const lineEls: (HTMLElement | undefined)[] = [];
+  const dotsEls: (HTMLElement | undefined)[] = [];
   const wordEls: HTMLElement[][] = [];
   const filler = new LineFiller();
   let transforms: string[] = $state([]);
 
-  function register(i: number) {
-    return (el: HTMLElement) => {
-      lineEls[i] = el;
-      return () => {
-        if (lineEls[i] === el) lineEls[i] = undefined;
-      };
-    };
-  }
-  function registerWord(i: number, j: number) {
-    return (el: HTMLElement) => {
-      (wordEls[i] ??= [])[j] = el;
-      return () => {
-        if (wordEls[i]?.[j] === el) delete wordEls[i][j];
-      };
-    };
-  }
-
   const visible = (i: number) => i >= active - BEHIND && i <= active + AHEAD;
+  const seekTo = (line: Line) => player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs));
 
   /** Stacks visible lines upward from the active one, older ones further back. */
   function layout() {
@@ -89,7 +90,7 @@
   });
 
   onMount(() => {
-    let raf = requestAnimationFrame(function loop(now) {
+    const stop = onPlaybackFrame((now) => {
       const t = lyricTime(player.clock.position(now), lyrics.totalOffsetMs);
       const idx = activeLineIndex(lines, t);
       if (idx !== active) {
@@ -97,12 +98,17 @@
         active = idx;
       }
       if (idx >= 0) filler.update(wordEls[idx], words[idx] ?? [], t);
-      raf = requestAnimationFrame(loop);
+      const dots = idx >= 0 ? dotsEls[idx] : undefined;
+      if (dots) {
+        const l = lines[idx];
+        const progress = Math.min(1, Math.max(0, (t - l.start_ms) / (l.end_ms - l.start_ms)));
+        dots.style.setProperty("--progress", progress.toFixed(3));
+      }
     });
     const onResize = () => layout();
     window.addEventListener("resize", onResize);
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       window.removeEventListener("resize", onResize);
     };
   });
@@ -113,21 +119,29 @@
     {#each lines as line, i (i)}
       {#if visible(i)}
         {@const d = i - active}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div
           class="line"
           class:active={d === 0}
           class:past={d < 0}
           style:transform={transforms[i] ?? ENTER_TRANSFORM}
           style:--age={Math.abs(d)}
-          {@attach register(i)}
+          {@attach registerAt(lineEls, i)}
           role="button"
-          tabindex="-1"
-          onclick={() => player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs))}
+          tabindex={Math.abs(d) <= 1 ? 0 : -1}
+          onclick={() => seekTo(line)}
+          onkeydown={(e) => {
+            if (e.key === "Enter") seekTo(line);
+          }}
         >
-          {#each words[i] as w, j (j)}
-            <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
-          {/each}
+          {#if isBreakLine(line)}
+            <div class="dots-wrap" {@attach registerAt(dotsEls, i)}>
+              <Interlude />
+            </div>
+          {:else}
+            {#each words[i] as w, j (j)}
+              <FillWord text={w.text} attach={registerIn(wordEls, i, j)} />{" "}
+            {/each}
+          {/if}
         </div>
       {/if}
     {/each}
@@ -173,6 +187,10 @@
   .line.past {
     color: var(--fill);
   }
+  .dots-wrap {
+    display: flex;
+    padding: 0.15em 0;
+  }
   .line.active {
     opacity: 1;
   }
@@ -197,5 +215,8 @@
       animation: none;
       transform: rotateY(-12deg) rotateX(5deg);
     }
+  }
+  :global(html.idle) .wall {
+    animation-play-state: paused;
   }
 </style>

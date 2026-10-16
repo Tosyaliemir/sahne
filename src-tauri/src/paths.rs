@@ -23,9 +23,21 @@ impl Paths {
         })
     }
 
-    /// Fallback when no home directory can be resolved: keep everything in /tmp.
+    /// Fallback when there is no home directory. Never a predictable shared
+    /// path such as `/tmp/sahne` (open to symlink and pre-creation attacks on
+    /// multi-user systems): the per-user runtime dir if there is one, else a
+    /// fresh private (0700) temporary directory.
     pub fn temporary() -> Self {
-        let base = std::env::temp_dir().join("sahne");
+        let base = private_runtime_dir().unwrap_or_else(|| {
+            tempfile::Builder::new()
+                .prefix("sahne-")
+                .tempdir()
+                .map(tempfile::TempDir::keep)
+                .unwrap_or_else(|e| {
+                    tracing::error!("no private temporary directory ({e}); settings won't persist");
+                    std::env::temp_dir().join(format!("sahne-{}", std::process::id()))
+                })
+        });
         Self {
             config: base.join("config"),
             cache: base.join("cache"),
@@ -39,6 +51,30 @@ impl Paths {
     pub fn art_cache(&self) -> PathBuf {
         self.cache.join("art")
     }
+}
+
+/// `$XDG_RUNTIME_DIR/sahne`, created 0700. The runtime dir itself is
+/// guaranteed to be owned by the user and 0700.
+#[cfg(unix)]
+fn private_runtime_dir() -> Option<PathBuf> {
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+    let base = PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?);
+    if !base.is_absolute() {
+        return None;
+    }
+    let dir = base.join("sahne");
+    match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+        Ok(()) => {}
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(_) => return None,
+    }
+    let meta = std::fs::symlink_metadata(&dir).ok()?;
+    (meta.is_dir() && meta.permissions().mode() & 0o077 == 0).then_some(dir)
+}
+
+#[cfg(not(unix))]
+fn private_runtime_dir() -> Option<PathBuf> {
+    None
 }
 
 /// Stable 64-bit FNV-1a hash, used for cache file names. (std's hasher is not
@@ -63,14 +99,43 @@ pub fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     write_atomic(path, &bytes)
 }
 
+/// Writes through a uniquely named temporary file in the same directory,
+/// fsyncs it and renames it over `path`: readers see the old or the new
+/// content, never a mix, and concurrent writers don't clobber each other's
+/// temporary file.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
+    use std::io::Write;
+    let dir = path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    std::fs::create_dir_all(dir)?;
+    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
+    tmp.write_all(bytes)?;
+    tmp.as_file().sync_all()?;
+    let mut attempt = 0u32;
+    loop {
+        match tmp.persist(path) {
+            Ok(_) => return Ok(()),
+            // Windows refuses to replace a file that another writer is
+            // replacing (or a reader has open) at that very moment; it clears
+            // within milliseconds.
+            Err(e)
+                if cfg!(windows)
+                    && e.error.kind() == io::ErrorKind::PermissionDenied
+                    && attempt < PERSIST_RETRIES =>
+            {
+                attempt += 1;
+                tmp = e.file;
+                std::thread::sleep(std::time::Duration::from_millis(2 << attempt.min(5)));
+            }
+            Err(e) => return Err(e.error),
+        }
     }
-    let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)
 }
+
+/// Retries of the final rename in [`write_atomic`] on Windows (about 1 s in all).
+const PERSIST_RETRIES: u32 = 20;
 
 pub fn unix_now() -> u64 {
     std::time::SystemTime::now()
@@ -97,5 +162,42 @@ mod tests {
         let back: Vec<i32> = read_json(&path).unwrap();
         assert_eq!(back, vec![1, 2, 3]);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn concurrent_writers_never_tear_or_fail() {
+        let dir = std::env::temp_dir().join(format!("sahne-atomic-{}", std::process::id()));
+        let path = dir.join("shared.json");
+        let writers: Vec<_> = (0..8u8)
+            .map(|n| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    let body = vec![b'a' + n; 64 * 1024];
+                    for _ in 0..20 {
+                        write_atomic(&path, &body).unwrap();
+                    }
+                })
+            })
+            .collect();
+        for w in writers {
+            w.join().unwrap();
+        }
+        let content = std::fs::read(&path).unwrap();
+        assert_eq!(content.len(), 64 * 1024);
+        assert!(content.iter().all(|&b| b == content[0]), "torn write");
+        // No temporary files left behind.
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fallback_dir_is_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let paths = Paths::temporary();
+        let base = paths.config.parent().unwrap();
+        let mode = std::fs::metadata(base).unwrap().permissions().mode();
+        assert_eq!(mode & 0o077, 0, "fallback dir is {:o}", mode & 0o777);
+        assert_ne!(base, std::env::temp_dir().join("sahne"));
     }
 }

@@ -1,233 +1,276 @@
 # Sahne
 
+**English** · [Türkçe](README.tr.md)
+
 [![CI](https://github.com/Tosyaliemir/sahne/actions/workflows/ci.yml/badge.svg)](https://github.com/Tosyaliemir/sahne/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Tosyaliemir/sahne/graph/badge.svg)](https://codecov.io/gh/Tosyaliemir/sahne)
+[![Release](https://img.shields.io/github/v/release/Tosyaliemir/sahne?include_prereleases&sort=semver)](https://github.com/Tosyaliemir/sahne/releases)
+[![Licence: MIT with exceptions](https://img.shields.io/badge/licence-MIT%20with%20exceptions-blue)](#licence-and-disclaimers)
+![Platforms: Linux, Windows](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-informational)
 
-Spotify'da (veya sistemin medya kontrollerine bağlanan başka bir oynatıcıda) çalan şarkının sözlerini **senkronize ve kelime kelime animasyonlu** olarak tam ekranda gösteren, ekranı albüm kapağının renklerine büründüren bir masaüstü uygulaması. **Linux** ve **Windows** için.
+Sahne shows synchronized, word-by-word animated lyrics for the song playing in
+Spotify or any other desktop music player, over a backdrop made from the
+album artwork's colors.
 
-![Klasik stil, akışkan arka plan](docs/klasik.png)
+![The split view: album cover on the left, the current lyric line filling word by word on the right, over a backdrop made from the cover's colors](docs/screenshots/hero.webp)
 
-| Dalga stili | Bulanık arka plan |
-|---|---|
-| ![Dalga](docs/dalga.png) | ![Bulanık](docs/bulanik.png) |
+## Features
 
-Mini mod: ![Mini mod](docs/mini.png)
+- Synchronized lyrics from [LRCLIB](https://lrclib.net), animated word by
+  word, in six styles.
+- A backdrop generated from the album artwork, plus optional cover effects and
+  an edge glow.
+- Works with Spotify and any player that reports to the system's media
+  controls (MPRIS on Linux, media sessions on Windows). No Spotify account,
+  API key or Premium subscription is needed.
+- Mini player, screensaver mode, per-track timing correction and an offline
+  cache.
+- Linux (Wayland and X11; GNOME and KDE Plasma) and Windows 10 and 11.
+- English and Turkish interface, following the system language.
 
-- Spotify Web API, hesap, anahtar veya Premium **gerekmez**: oynatıcı bilgisi sistemden okunur (Linux'ta D-Bus/MPRIS, Windows'ta sistem medya kontrolleri — ses düğmesine basınca çıkan medya kutusunun kaynağı).
-- Sözler ücretsiz ve anahtarsız [LRCLIB](https://lrclib.net)'ten gelir, diskte önbelleğe alınır.
-- Linux'ta Wayland ve X11'de çalışır; GNOME ve KDE hedeflenmiştir. Windows 10 ve 11'de çalışır.
+## Installation
 
-## Kurulum
+Prebuilt packages are published on the
+[Releases](https://github.com/Tosyaliemir/sahne/releases) page. No release
+has been published yet; until then, [build from source](#building-from-source).
 
-En kolayı [Releases](https://github.com/Tosyaliemir/sahne/releases) sayfasından indirmek:
+Each release provides:
 
-- **Windows:** `Sahne_<sürüm>_x64-setup.exe` dosyasını indirip çalıştır. Yönetici izni istemez; Başlat menüsüne eklenir. (İmzasız olduğu için SmartScreen "Windows bilgisayarınızı korudu" diyebilir: **Ek bilgi → Yine de çalıştır**.)
-- **Linux, AppImage (her dağıtım):** `chmod +x Sahne_*.AppImage && ./Sahne_*.AppImage`
-- **Linux, .deb (Debian/Ubuntu):** `sudo apt install ./Sahne_*.deb`
+- **Linux, AppImage (any distribution):**
+  `chmod +x Sahne_*.AppImage && ./Sahne_*.AppImage`
+- **Linux, .deb (Debian, Ubuntu):** `sudo apt install ./Sahne_*.deb`
+- **Windows:** run `Sahne_<version>_x64-setup.exe`. It installs for the current
+  user without administrator rights. The installer is not code-signed yet, so
+  SmartScreen may show "Windows protected your PC"; choose **More info → Run
+  anyway**.
 
-Kaynaktan derlemek için aşağıdaki "Geliştirme" bölümüne bak; `pnpm tauri build` iki paket üretir:
+Every release lists SHA-256 checksums (`SHA256SUMS`) and carries a build
+provenance attestation (`gh attestation verify <file> --repo Tosyaliemir/sahne`).
 
-- `src-tauri/target/release/bundle/appimage/Sahne_<sürüm>_amd64.AppImage` — tek dosya, kurulum gerektirmez (`chmod +x` ile çalıştır).
-- `src-tauri/target/release/bundle/deb/Sahne_<sürüm>_amd64.deb` — `sudo apt install ./Sahne_*.deb`.
+## Usage
 
-Windows'ta `pnpm tauri build --bundles nsis` kurulum dosyasını `src-tauri/target/release/bundle/nsis/` altına üretir (Rust, Node.js ve Visual Studio C++ Build Tools gerekir).
+Start playing a song in Spotify (or another player), then start Sahne. Within
+a moment it picks up the track, finds the lyrics and sets the scene. By
+default the cover and the lyrics share the screen; click the lyrics or press
+`L` to give them the whole screen, then click a line to seek to it.
 
-## Kullanım
+| Key         | Action                                                         |
+| ----------- | -------------------------------------------------------------- |
+| `Space`     | Play / pause                                                   |
+| `←` / `→`   | Previous / next track                                          |
+| `↑` / `↓`   | Volume up / down (where the player supports it)                |
+| `L`         | Lyrics focus: lyrics fill the screen / back to the split view  |
+| `S`         | Next lyrics style                                              |
+| `[` / `]`   | Show this song's lyrics 100 ms earlier / later (remembered)    |
+| `F` / `Esc` | Toggle fullscreen / leave fullscreen                           |
+| `M`         | Mini player (small, always on top where the desktop allows it) |
+| `,`         | Settings                                                       |
 
-Spotify'ı açıp bir şarkı çal, Sahne'yi başlat. Birkaç yüz milisaniye içinde şarkıyı tanır, sözleri bulur ve sahneyi kurar.
+The progress bar is clickable. The bottom bar hides after two seconds without
+mouse movement (configurable).
 
-| Tuş | İşlev |
-|---|---|
-| `Boşluk` | Oynat / duraklat |
-| `←` / `→` | Önceki / sonraki şarkı |
-| `F` / `Esc` | Tam ekran / tam ekrandan çık |
-| `M` | Mini mod (küçük, her zaman üstte pencere) |
-| `S` | Animasyon stilini değiştir: **Klasik → Kinetik → Sade → Dalga → Harman** |
-| `[` / `]` | Bu şarkının sözlerini 100 ms öne al / geciktir (kalıcı) |
-| `,` | Ayarlar |
+## Lyrics styles
 
-Söz satırına tıklamak şarkıyı o satıra sarar; alt çubuktaki ilerleme çubuğu da tıklanabilir. Fare 2 saniye hareketsiz kalınca kontroller gizlenir.
+| Classic                                                                                                              | Kinetic                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| ![Classic style: the active line large and centred, filling from left to right](docs/screenshots/focus-classic.webp) | ![Kinetic style: a single word in large type in the middle of the screen](docs/screenshots/kinetic.webp) |
+| **Wave**                                                                                                             | **Wall**                                                                                                 |
+| ![Wave style: words rising into place one after another](docs/screenshots/wave.webp)                                 | ![Wall style: recent lines stacked in large capitals](docs/screenshots/wall.webp)                        |
 
-**Animasyon stilleri**
+- **Classic:** the active line is large and centred; words fill from left to
+  right as they are sung, with a slight lift and glow.
+- **Kinetic:** each word appears on its own in the middle of the screen.
+- **Minimal:** no motion, only the color fill. Chosen automatically when the
+  system asks for reduced motion.
+- **Wave:** the Classic layout, with words rising into place one after another.
+- **Blend:** Classic, switching to Kinetic for fast passages (more than about
+  3.4 words per second for at least 3.5 seconds) and back.
+- **Wall:** recent lines stack into a wall of large type that sways gently in
+  3D.
 
-- **Klasik:** Aktif satır ortada ve büyük; kelimeler söylendikçe soldan sağa dolar, hafifçe zıplar ve parlar. Önceki/sonraki satırlar küçük ve soluk.
-- **Kinetik:** Her kelime tek başına ekranın ortasında, ölçek ve hafif dönmeyle belirir.
-- **Sade:** Hareket yok, yalnızca renk dolumu. Sistemde "hareketi azalt" (`prefers-reduced-motion`) açıksa otomatik seçilir.
-- **Dalga:** Klasik düzen; kelimeler söylendikçe sırayla aşağıdan yerine yükselir, satır boyunca bir dalga akar.
-- **Harman:** Klasik akar; saniyede ~3,4 kelimeyi aşan ve en az 3,5 saniye süren hızlı bölümlerde (rap, "flex" kısımları) kinetiğe geçer, bölüm bitince yumuşakça klasiğe döner.
+Most LRCLIB lyrics are timed per line. Without word timings (Enhanced LRC), a
+line's duration is spread over its words by length, so word highlighting is an
+estimate while line changes are exact.
 
-**Arka plan**
+## Backdrops and cover effects
 
-- **Akışkan** (varsayılan): Kapağın kendisi, iki katman hâlinde zıt yönlerde yavaşça döner ve sıvı gibi bükülür (WebGL shader), kapaktan çıkarılan 5 renkle harmanlanır. Düşük çözünürlükte çizilip büyütüldüğü için GPU'yu yormaz; WebGL yoksa kendiliğinden Bulanık'a döner.
-- **Bulanık:** Önceden bulanıklaştırılmış kapak ve üzerinde süzülen 5 renk alanı.
+| Blurred backdrop                                                                                            | Metal plate                                                                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| ![The blurred backdrop: a soft, blurred copy of the cover behind the lyrics](docs/screenshots/blurred.webp) | ![The cover set into a brushed metal plate that reflects it](docs/screenshots/cover-metal.webp)       |
+| **Electric border**                                                                                         | **Mini player**                                                                                       |
+| ![Crackling light running around the cover's edge](docs/screenshots/cover-electric.webp)                    | ![The mini player: cover, title, progress and controls in a small window](docs/screenshots/mini.webp) |
 
-**Kapak efektleri** (Ayarlar → Görünüm; renkler kapaktan alınır)
+Backdrops (Settings → Appearance → Backdrop):
 
-- **Metal plaka:** Kapak, kendisini yansıtan fırçalanmış metal bir plakaya gömülür ve fareyle eğilir.
-- **Elektrik kenarlık:** Kapağın kenarında çatırdayan bir ışık dolaşır; fare yaklaşınca kıvılcımlanır, tıklayınca dalga yayılır.
+- **Fluid** (default): the cover itself, slowly flowing and swirling (WebGL),
+  blended with five colors taken from it. Falls back to Blurred without WebGL,
+  and on software rendering unless the performance mode is Quality.
+- **Blurred:** a pre-blurred copy of the cover with drifting color fields.
+- **Original cover:** the sharp cover, slowly zooming and darkened for
+  readability.
+- **Color:** a calm gradient made from the cover's colors.
 
-Bunlar WebGL2 ister; yoksa kapak efektsiz görünür. Sistemde "hareketi azalt" açıksa kapatılırlar.
+**Performance mode** limits the fluid backdrop: _Auto_ (30 fps, lower
+resolution when frames run late), _Quality_ (full rate) and _Battery saver_
+(20 fps, lower resolution). A paused or hidden window draws nothing.
 
-**Ekran koruyucu**
+Cover effects (Settings → Appearance → Cover effect) take their colors from
+the cover:
 
-Müzik çalarken bilgisayar belirli bir süre (varsayılan 3 dk) boşta kalırsa Sahne öne gelir ve tam ekran olur; fareyi oynatınca veya bir tuşa basınca pencereler eski hâline (gizli, küçültülmüş, mini mod…) döner. Ayarlardan kapatılabilir, süresi değiştirilebilir. İstersen ekran koruyucu açıkken ekranın kararmasını da engelleyebilir (bu, sistemin kilit ekranını da geciktirir; varsayılan kapalı). Windows'ta boşta kalma süresi son klavye/fare hareketinden ölçülür. Linux'ta boşta kalma süresi Wayland'de `ext-idle-notify` protokolüyle (destekleyen compositor'larda; KDE Plasma 6'da test edildi), yoksa GNOME (Mutter IdleMonitor) veya X11 (`org.freedesktop.ScreenSaver`) D-Bus arayüzleriyle ölçülür. Müzik çalarken oynatıcıların koyduğu "uyku engelleri" sayılmaz, yani müzik çalarken de çalışır.
+- **Metal plate:** the cover is set into a brushed metal plate that reflects
+  it and tilts toward the mouse.
+- **Electric border:** light crackles along the cover's edge; it sparks when
+  the mouse comes near and sends a pulse on click.
 
-LRCLIB'deki sözlerin çoğu satır düzeyinde zamanlıdır. Kelime zamanları (Enhanced LRC) yoksa satır süresi kelimelere uzunluklarına göre dağıtılır; bu yüzden kelime vurgusu bir tahmindir, satır geçişleri ise gerçek zamanlıdır.
+Both need WebGL2. They are turned off when the system asks for reduced motion.
+When it asks for more contrast, the electric border glows and flickers less and
+the metal plate drops its moving highlights; in Battery saver mode the electric
+border draws at 30 fps without sparks and the plate renders at 1x resolution.
+**Edge light** adds colors flowing along the screen edges.
 
-## Ayarlar ve dosyalar
+![The settings panel, open on the right side of the window](docs/screenshots/settings.webp)
 
-| Yol | İçerik |
-|---|---|
-| `~/.config/sahne/settings.json` | Ayarlar (panelden değişir; elle düzenlenebilir) |
-| `~/.config/sahne/offsets.json` | Şarkı başına söz kaydırmaları |
-| `~/.cache/sahne/lyrics/` | Söz önbelleği (bulunamayanlar 24 saat sonra yeniden aranır) |
-| `~/.cache/sahne/art/` | Kapak ve önceden bulanıklaştırılmış arka plan önbelleği |
+_Screenshots show lyrics and artwork for illustration only; all rights belong
+to their owners._
 
-Önbelleği silmek güvenlidir.
+## Screensaver mode
 
-## Geliştirme
+When music plays and the computer has been idle for a while (3 minutes by
+default), Sahne comes to the front in fullscreen. Moving the mouse or pressing
+a key puts the windows back as they were (hidden, minimised, mini player…).
+The delay is configurable, and the mode can be turned off. Optionally, Sahne
+keeps the screen from blanking while it shows; this also delays the system's
+lock screen, so it is off by default.
 
-### Sistem bağımlılıkları
+Idle time comes from `ext-idle-notify` on Wayland compositors that support it
+(tested on KDE Plasma 6), otherwise from GNOME's Mutter IdleMonitor or the
+`org.freedesktop.ScreenSaver` D-Bus interface on X11, and from the last input
+time on Windows. Sleep inhibitors set by music players are ignored, so the
+mode works while music plays.
 
-**Debian / Ubuntu**
+## Configuration and data locations
+
+Settings are changed in the settings panel (`,`). The files are plain JSON.
+
+| Contents                                 | Linux                           | Windows                                |
+| ---------------------------------------- | ------------------------------- | -------------------------------------- |
+| Settings                                 | `~/.config/sahne/settings.json` | `%APPDATA%\sahne\config\settings.json` |
+| Per-track lyric offsets                  | `~/.config/sahne/offsets.json`  | `%APPDATA%\sahne\config\offsets.json`  |
+| Lyrics cache (misses retried after 24 h) | `~/.cache/sahne/lyrics/`        | `%LOCALAPPDATA%\sahne\cache\lyrics\`   |
+| Artwork and backdrop cache               | `~/.cache/sahne/art/`           | `%LOCALAPPDATA%\sahne\cache\art\`      |
+
+The caches are capped at 20 MB (lyrics) and 200 MB (artwork) and are safe to
+delete; Settings → Window → Cache shows their size and clears them.
+
+## Troubleshooting and known limitations
+
+- **NVIDIA on Wayland:** WebKitGTK's GPU renderer crashes with "Error 71"
+  because of NVIDIA's explicit sync. Sahne sets `__NV_DISABLE_EXPLICIT_SYNC=1`
+  when it detects the NVIDIA driver, which keeps GPU rendering and 60 fps.
+  (The often suggested `WEBKIT_DISABLE_DMABUF_RENDERER=1` also avoids the crash
+  but copies frames through the CPU and stutters in fullscreen.) If you set the
+  variable yourself, Sahne leaves it alone.
+- **Mini player on GNOME Wayland:** GNOME does not let applications keep a
+  window on top, and no Wayland compositor lets them restore a window's
+  position. "Always on top" works on KDE Plasma; positions are restored on X11.
+- **LRCLIB coverage:** LRCLIB is a free, community-maintained service. Some
+  songs are missing or slightly out of sync (use `[` and `]`), and coverage of
+  non-English songs is lower. Sahne spaces its requests, backs off when the
+  service is busy, and retries in the background.
+- **Volume on Windows:** Windows media sessions do not expose the player's
+  volume, so the volume control is hidden there.
+- **Players that report position 0:** some players always report position 0.
+  Sahne notices within three seconds, counts time itself, and shows a note in
+  the settings. Seeking from Sahne stays accurate in this mode; seeking in the
+  player may drift until the next track.
+
+To check what a player reports on Linux, use `playerctl`:
 
 ```sh
-sudo apt update
-sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev playerctl
+playerctl -l                    # connected players
+playerctl -p spotify metadata   # title, artist, artwork URL, length
+playerctl -p spotify position   # should increase while playing
 ```
 
-**Fedora**
+For a detailed log, start Sahne with `RUST_LOG=sahne_lib=debug`.
 
-```sh
-sudo dnf check-update
-sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel \
-  librsvg2-devel libxdo-devel playerctl
-sudo dnf group install "c-development"
-```
+## Building from source
 
-**Arch / CachyOS / Manjaro**
-
-```sh
-sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module \
-  libappindicator-gtk3 librsvg xdotool playerctl
-```
-
-Ayrıca: Rust (stable, `rustup`), Node.js 20+ ve pnpm (`npm i -g pnpm`; nvm kullanıyorsan `sudo` olmadan).
-
-### Çalıştırma ve testler
+You need Rust (the pinned version in `rust-toolchain.toml` is installed by
+`rustup`), Node.js 22, pnpm 10 and the platform's WebView development files;
+see [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) for the package lists.
 
 ```sh
 pnpm install
-pnpm tauri dev                 # geliştirme
-pnpm tauri build               # AppImage + .deb
-
-pnpm test                      # TypeScript birim testleri (Vitest)
-pnpm check                     # Svelte/TS tip kontrolü
-cd src-tauri && cargo test     # Rust birim testleri
+pnpm tauri build                      # Linux: AppImage and .deb
+pnpm tauri build --bundles nsis       # Windows: installer
 ```
 
-Ekran koruyucuyu beklemeden denemek için `SAHNE_SCREENSAVER_SECS=15 pnpm tauri dev`. Ayrıntılı log için `RUST_LOG=sahne_lib=debug pnpm tauri dev`. Arayüzdeki JS hataları da `frontend` hedefiyle aynı loga düşer; geliştirme modunda her 10 saniyede kare istatistiği (`frames: 60.0 fps, p95 …`) yazılır.
+The packages are written to `src-tauri/target/release/bundle/`.
 
-### Mimari
-
-```
-src-tauri/src/
-  player/     oynatıcı izleme: linux.rs (MPRIS), gsmtc.rs (Windows medya oturumları),
-              ortak durum, oynatıcı seçimi, konum takibi (Position=0 yedeği), kontroller
-  lyrics/     LRCLIB istemcisi, LRC ayrıştırıcı, başlık temizleme, önbellek, offset'ler
-  artwork/    kapak indirme/önbellek, OKLab k-means palet, bulanık arka plan
-  idle.rs, screensaver.rs (ekran koruyucu), settings.rs, windows.rs (mini mod), events.rs
-src/
-  lib/stores/       player, lyrics, palette, settings, ui
-  lib/components/   LyricsView (klasik/sade/dalga), FillWord, KineticView, HarmanView, FlowBackground (WebGL), Background, ControlBar, SettingsPanel…
-  lib/timing.ts     aktif satır/kelime, kelime zamanlaması, enstrümantal aralar
-  lib/clock.ts      backend senkronları arasında 60 fps konum interpolasyonu
-  MiniApp.svelte    mini pencere
-```
-
-Backend → frontend olayları: `track-changed`, `playback-state`, `position-sync`, `lyrics-loaded`, `palette-changed`, `player-disconnected`, `settings-changed`. Tipler `src-tauri/src/events.rs` ve `src/lib/types.ts` içinde; `ts_contract` testi ikisini senkron tutar.
-
-### Spotify olmadan test: mock player
-
-`dev-tools/mock-player`, D-Bus'ta `org.mpris.MediaPlayer2.sahnemock` adıyla sahte bir oynatıcı yayınlar.
+## Development
 
 ```sh
-cd dev-tools/mock-player
-cargo run                                   # Rick Astley, Queen, Tarkan
-cargo run -- --zero-position                # Position hep 0 dönen bozuk oynatıcıyı taklit eder
-cargo run -- --track "Sanatçı|Başlık|Albüm|213.5|file:///yol/kapak.png"
+pnpm tauri dev                       # run with hot reload
+pnpm lint && pnpm check && pnpm test # frontend: ESLint/Prettier, types, unit tests
+cd src-tauri && cargo test           # backend tests
 ```
 
-Çalışırken terminale `p` (oynat/duraklat), `n` (sonraki), `b` (önceki), `s 60` (60. saniye), `q` (çık) yazılabilir. Sahne'yi mock'a bağlamak için (Spotify açıkken bile):
+- **Mock player:** `dev-tools/mock-player` publishes a fake MPRIS player for
+  testing without Spotify; run Sahne with `SAHNE_PLAYER=sahnemock`.
+- **Preview harness:** `preview.html` renders the UI in a normal browser with a
+  mocked backend (`pnpm vite --port 1430`, then open
+  `http://127.0.0.1:1430/preview.html`). `pnpm screenshots` regenerates the
+  images in this README.
 
-```sh
-SAHNE_PLAYER=sahnemock pnpm tauri dev
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details, including the
+[manual test checklist](CONTRIBUTING.md#manual-test-checklist).
 
-### Pencere açmadan arayüz önizleme
+## Architecture
 
-`preview.html`, arayüzü sahte bir backend ile normal tarayıcıda çizer:
+A Rust backend (Tauri 2) follows the media player, fetches lyrics and artwork,
+and sends events to a Svelte 5 frontend. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the services, the event
+contract, the threading model and the cache layout.
 
-```sh
-pnpm vite --port 1430
-# http://127.0.0.1:1430/preview.html?view=main&style=kinetik&at=13000
-# parametreler: view=main|mini, style=klasik|kinetik|sade|dalga|harman, at=<ms>, paused=1,
-#               panel=settings, lyrics=synced|plain|loading|not_found, lang=en,
-#               bg=akiskan|bulanik, static=1
-```
+## Contributing
 
-## MPRIS verisini elle kontrol etme
+Bug reports, translations and pull requests are welcome. Please read
+[CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
-```sh
-playerctl -l                        # bağlı oynatıcılar (spotify görünmeli)
-playerctl -p spotify metadata       # başlık, sanatçı, kapak adresi (mpris:artUrl), süre (mpris:length)
-playerctl -p spotify position       # saniye cinsinden konum; çalarken artmalı
-playerctl -p spotify status         # Playing / Paused
-```
+## Security
 
-`position` çalarken hep `0` dönüyorsa Sahne bunu 3 saniye içinde fark eder, süreyi kendi saatiyle sayar ve ayarlarda bir uyarı gösterir. Bu modda ileri sarma Sahne üzerinden yapılırsa doğru kalır; Spotify içinden sarınca bir sonraki şarkıya kadar kayabilir.
+Please report vulnerabilities privately; see [SECURITY.md](SECURITY.md), which
+also describes the threat model.
 
-## Elle kontrol listesi
+## Credits and acknowledgements
 
-- [ ] Spotify'da şarkı değiştir → başlık, kapak, renkler ve sözler değişir.
-- [ ] Spotify'da ileri/geri sar → sözler anında yeni konuma atlar.
-- [ ] Duraklat / devam et → "Duraklatıldı" rozeti çıkar/kaybolur, sözler durur/devam eder.
-- [ ] Spotify'ı kapat → "Spotify açık değil" ekranı; yeniden aç → kendiliğinden bağlanır.
-- [ ] İnternet bağlantısını kes, daha önce çalınmamış bir şarkı aç → "Çevrimdışı" ekranı; bağlantı gelince sözler kendiliğinden yüklenir.
-- [ ] Sözü olmayan veya enstrümantal bir şarkı çal → büyük kapak + "Söz bulunamadı"/"Enstrümantal".
-- [ ] Türkçe sözlü bir şarkı çal (ör. Tarkan) → ç, ğ, ı, İ, ö, ş, ü doğru görünür.
-- [ ] `[` / `]` ile kaydırma yap, uygulamayı kapatıp aç → kaydırma korunur.
-- [ ] `M` ile mini moda geç ve geri dön; `S` ile stilleri dene; `F` ile tam ekran.
+- [React Bits](https://reactbits.dev) by David Haz: the electric border and
+  metal plate effects are derived from its "Electric Border" and "Reflective
+  Card" components (MIT + Commons Clause; see
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+- [LRCLIB](https://lrclib.net): the lyrics database and API.
+- [Manrope](https://github.com/googlefonts/manrope): the bundled typeface (SIL
+  Open Font License 1.1).
+- [Tauri](https://tauri.app) and [Svelte](https://svelte.dev): the application
+  framework and the UI framework.
+- Apple Music and [AMLL](https://github.com/amll-dev/applemusic-like-lyrics):
+  visual inspiration for the fluid backdrop. No code was taken from either.
 
-## Bilinen sınırlar
+## Licence and disclaimers
 
-- **Windows'ta ses kontrolü yok:** Windows'un medya arayüzü oynatıcının sesini vermiyor, bu yüzden ses düğmesi gizlenir; sesi Spotify'dan veya sistemden ayarla. Oynatıcı seçimi, sözler, kapak ve kontroller aynıdır.
+Sahne is MIT-licensed (see [LICENSE](LICENSE)), except for the third-party files
+listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which keep their own
+licences. Because two effect modules are under MIT + Commons Clause, Sahne as a
+whole is not purely OSI-approved open source. Settings → About lists the
+licences of all bundled dependencies.
 
-- **NVIDIA + Wayland:** WebKitGTK'nın GPU çizicisi NVIDIA'nın "explicit sync" özelliği yüzünden "Error 71" ile çöker. Sahne NVIDIA sürücüsünü görünce `__NV_DISABLE_EXPLICIT_SYNC=1` ayarlar; GPU çizimi açık kalır, 60 fps korunur. (Sık önerilen `WEBKIT_DISABLE_DMABUF_RENDERER=1` de çökmeyi önler ama CPU'ya kopyalamaya geçtiği için tam ekranda kasar.) Değişkeni kendin ayarlarsan Sahne dokunmaz.
-- **Wayland'de mini pencere:** "Her zaman üstte" KDE'de çalışır. GNOME Wayland uygulamaların bunu yapmasına izin vermez. Wayland'de pencere konumu da uygulama tarafından kaydedilip geri yüklenemez (X11'de yapılır).
-- **LRCLIB:** Topluluk verisidir ve ücretsiz bir hizmettir. Bazı şarkılarda zamanlama kayık olabilir (`[`/`]` bunun için var), Türkçe şarkılarda kapsama daha azdır. Saniyede yaklaşık bir isteğe izin verir (fazlasına HTTP 429) ve yoğun zamanlarda 503 döner; Sahne istekleri buna göre aralar, şarkı geçilince eski aramayı iptal eder ve "aranıyor" ekranında kalarak arka planda yeniden dener. Arama sırası: önce hızlı `get-cached` (~0,3 sn), sonra `search`, en son yavaş `get`. Bir kez bulunan sözler önbellekten anında gelir. 4 satırdan az içeren kayıtlar çöp kabul edilip atlanır.
-- Kelime vurgusu, Enhanced LRC yoksa tahminidir (yukarıya bak).
+Sahne is not affiliated with or endorsed by Spotify. Spotify is a trademark of
+Spotify AB.
 
-## Flatpak notları (ileride)
+Lyrics are community-provided by LRCLIB and remain the property of their
+respective rights holders; Sahne only displays and caches them locally.
 
-- D-Bus: `--talk-name=org.mpris.MediaPlayer2.*` (oynatıcıları okumak ve kontrol etmek için).
-- Ağ: `--share=network` (LRCLIB ve kapak indirme).
-- Önbellek/ayarlar Flatpak'ın XDG dizinlerine düşer; `directories` crate'i bunu kendiliğinden halleder.
-- NVIDIA'da `__NV_DISABLE_EXPLICIT_SYNC=1` manifest'te ortam değişkeni olarak da verilebilir.
-
-## Katkı
-
-Hata ve öneriler için issue açabilirsin. Pull request göndermeden önce:
-
-```sh
-pnpm check && pnpm test
-cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
-```
-
-Aynı kontroller her push'ta GitHub Actions'ta çalışır. `v*` etiketi (`git tag v0.2.0 && git push --tags`) gönderildiğinde Linux (AppImage, .deb) ve Windows (kurulum .exe) paketleri derlenip taslak bir sürüme eklenir.
-
-Arka plan efekti, Apple Music'in sözler ekranındaki ve [AMLL](https://github.com/amll-dev/applemusic-like-lyrics)'deki akışkan kapak arka planlarından esinlenmiştir; kodu Sahne için sıfırdan yazılmıştır (AMLL AGPL lisanslıdır, ondan kod alınmamıştır).
-
-## Lisans
-
-MIT (bkz. `LICENSE`). Gömülü Manrope yazı tipi SIL Open Font License 1.1 ile dağıtılır (`src/assets/fonts/OFL.txt`).
+Screenshots show lyrics and artwork for illustration only; all rights belong to
+their owners.

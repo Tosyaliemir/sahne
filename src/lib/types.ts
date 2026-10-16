@@ -50,14 +50,7 @@ export interface Line {
   words: Word[] | null;
 }
 
-export type LyricsState =
-  | "loading"
-  | "synced"
-  | "plain"
-  | "instrumental"
-  | "not_found"
-  | "offline"
-  | "error";
+export type LyricsState = "loading" | "synced" | "plain" | "instrumental" | "not_found" | "offline" | "error";
 
 export interface LyricsLoaded {
   track_id: string;
@@ -86,7 +79,7 @@ export interface PaletteChanged {
   palette: Palette;
 }
 
-export type LyricsStyleSetting = "klasik" | "kinetik" | "sade" | "dalga" | "harman" | "duvar";
+export type LyricsStyleSetting = "classic" | "kinetic" | "minimal" | "wave" | "blend" | "wall";
 
 export interface Settings {
   preferred_player: string | null;
@@ -100,13 +93,18 @@ export interface Settings {
   start_fullscreen: boolean;
   /** Seconds before the bottom bar hides; 0 = never. */
   controls_hide_secs: number;
-  language: "tr" | "en";
-  backdrop_style: "akiskan" | "bulanik" | "kapak" | "renk";
+  language: "system" | "tr" | "en";
+  backdrop_style: "fluid" | "blurred" | "cover" | "color";
   edge_glow: boolean;
   screensaver_enabled: boolean;
   screensaver_minutes: number;
   screensaver_keep_awake: boolean;
   cover_effect: CoverEffect;
+  performance_mode: PerformanceMode;
+  /** Announce each new lyric line to screen readers (aria-live). */
+  announce_lyrics: boolean;
 }
 
-export type CoverEffect = "yok" | "metal" | "elektrik";
+export type PerformanceMode = "auto" | "quality" | "battery";
+
+export type CoverEffect = "none" | "metal" | "electric";

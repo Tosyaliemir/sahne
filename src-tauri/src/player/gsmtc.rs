@@ -2,16 +2,18 @@
 //! Transport Controls, the same source the volume flyout and lock screen use.
 //! Spotify, browsers and most players publish to it.
 //!
-//! Everything runs on one background thread that polls a few times a second:
-//! the API's change events fire on arbitrary threads and Spotify updates its
-//! timeline only sparsely anyway, so polling is simpler and just as timely.
+//! Everything runs on one background thread. It wakes on the API's change
+//! events (sessions, media properties, playback info, timeline), which fire
+//! on arbitrary threads and only signal a channel, and otherwise polls slowly
+//! as a fallback; the frontend interpolates position between reads.
 //! There is no volume here: the API has none, so the UI hides the control.
 
-use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use ::windows::Foundation::TypedEventHandler;
 use ::windows::Media::Control::{
     GlobalSystemMediaTransportControlsSession as Session,
     GlobalSystemMediaTransportControlsSessionManager as Manager,
@@ -31,9 +33,10 @@ use crate::events::{PlaybackStatus, TrackInfo};
 /// What `PlayerState` keeps to talk to the followed player.
 pub type Handle = Session;
 
-const TICK: Duration = Duration::from_millis(500);
-/// Position is re-published every this many ticks while nothing else changes.
-const POSITION_EVERY: u32 = 2;
+/// Fallback poll when no change event arrives (also re-publishes position).
+const SLOW_POLL: Duration = Duration::from_secs(2);
+/// Waits after an event before reading, so a burst becomes one read.
+const SETTLE: Duration = Duration::from_millis(40);
 /// Players often publish the thumbnail a moment after the title.
 const ART_RETRIES: u32 = 10;
 
@@ -48,18 +51,21 @@ impl PlayerState {
         let s = self.handle()?;
         blocking(move || s.TryTogglePlayPauseAsync()?.join()).await?;
         self.repoll.notify_one();
+        wake_loop();
         Ok(())
     }
 
     pub async fn next(&self) -> AppResult<()> {
         let s = self.handle()?;
         blocking(move || s.TrySkipNextAsync()?.join()).await?;
+        wake_loop();
         Ok(())
     }
 
     pub async fn previous(&self) -> AppResult<()> {
         let s = self.handle()?;
         blocking(move || s.TrySkipPreviousAsync()?.join()).await?;
+        wake_loop();
         Ok(())
     }
 
@@ -74,6 +80,7 @@ impl PlayerState {
         })
         .await?;
         self.after_seek(position_ms);
+        wake_loop();
         Ok(())
     }
 }
@@ -160,6 +167,64 @@ struct Followed {
     track_key: Option<String>,
     art_url: Option<String>,
     art_tries: u32,
+    /// Event registrations on `session`, removed on drop.
+    tokens: [i64; 3],
+}
+
+impl Followed {
+    fn new(name: String, session: Session, wake: &Sender<()>) -> WinResult<Self> {
+        let w = wake.clone();
+        let media = session.MediaPropertiesChanged(&TypedEventHandler::new(move |_, _| {
+            let _ = w.send(());
+            Ok(())
+        }))?;
+        let w = wake.clone();
+        let playback = session.PlaybackInfoChanged(&TypedEventHandler::new(move |_, _| {
+            let _ = w.send(());
+            Ok(())
+        }))?;
+        let w = wake.clone();
+        let timeline =
+            session.TimelinePropertiesChanged(&TypedEventHandler::new(move |_, _| {
+                let _ = w.send(());
+                Ok(())
+            }))?;
+        Ok(Self {
+            name,
+            session,
+            track_key: None,
+            art_url: None,
+            art_tries: 0,
+            tokens: [media, playback, timeline],
+        })
+    }
+}
+
+impl Drop for Followed {
+    fn drop(&mut self) {
+        let [media, playback, timeline] = self.tokens;
+        let _ = self.session.RemoveMediaPropertiesChanged(media);
+        let _ = self.session.RemovePlaybackInfoChanged(playback);
+        let _ = self.session.RemoveTimelinePropertiesChanged(timeline);
+    }
+}
+
+/// Lets commands (play/pause, seek...) wake the media thread at once.
+static WAKE: std::sync::Mutex<Option<Sender<()>>> = std::sync::Mutex::new(None);
+
+fn wake_loop() {
+    if let Some(tx) = crate::sync::lock(&WAKE).as_ref() {
+        let _ = tx.send(());
+    }
+}
+
+/// Blocks until a change event (or a command) arrives or `timeout` passes,
+/// then swallows the rest of a burst.
+fn wait_for_change(rx: &Receiver<()>, timeout: Duration) {
+    if rx.recv_timeout(timeout).is_ok() {
+        std::thread::sleep(SETTLE);
+        while rx.try_recv().is_ok() {}
+    }
 }
 
 fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()> {
@@ -168,10 +233,29 @@ fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()>
         .app_cache_dir()
         .map(|d| d.join("session-art"))
         .ok();
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    *crate::sync::lock(&WAKE) = Some(tx.clone());
+    let w = tx.clone();
+    let sessions_token = manager.SessionsChanged(&TypedEventHandler::new(move |_, _| {
+        let _ = w.send(());
+        Ok(())
+    }))?;
+    let result = follow_sessions(app, state, manager, &tx, &rx, art_dir.as_ref());
+    let _ = manager.RemoveSessionsChanged(sessions_token);
+    *crate::sync::lock(&WAKE) = None;
+    result
+}
+
+fn follow_sessions(
+    app: &AppHandle,
+    state: &PlayerState,
+    manager: &Manager,
+    wake: &Sender<()>,
+    rx: &Receiver<()>,
+    art_dir: Option<&PathBuf>,
+) -> WinResult<()> {
     let mut followed: Option<Followed> = None;
-    let mut tick: u32 = 0;
     loop {
-        tick = tick.wrapping_add(1);
         let all = sessions(manager)?;
         let pairs: Vec<(String, bool)> = all.iter().map(|(n, p, _)| (n.clone(), *p)).collect();
         let chosen = choose_player(&pairs, state.preferred().as_deref()).map(str::to_owned);
@@ -181,22 +265,23 @@ fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()>
                 tracing::info!("no media session, waiting");
                 disconnect(app, state);
             }
-            std::thread::sleep(TICK);
+            wait_for_change(rx, SLOW_POLL);
             continue;
         };
 
         let switched = followed.as_ref().is_none_or(|f| f.name != name);
         if switched {
-            // `chosen` came from this list, so the lookup cannot miss; skip the tick if it does.
+            // `chosen` came from this list, so the lookup cannot miss; skip the round if it does.
             let Some(session) = all
                 .into_iter()
                 .find(|(n, _, _)| *n == name)
                 .map(|(_, _, s)| s)
             else {
-                std::thread::sleep(TICK);
+                wait_for_change(rx, SLOW_POLL);
                 continue;
             };
             tracing::info!("following {name}");
+            drop(followed.take()); // unsubscribe from the previous session first
             disconnect(app, state);
             {
                 let mut s = state.lock();
@@ -204,16 +289,10 @@ fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()>
                 s.player = Some(name.clone());
             }
             apply_volume(app, state, None);
-            followed = Some(Followed {
-                name: name.clone(),
-                session,
-                track_key: None,
-                art_url: None,
-                art_tries: 0,
-            });
+            followed = Some(Followed::new(name.clone(), session, wake)?);
         }
         let Some(f) = followed.as_mut() else {
-            std::thread::sleep(TICK);
+            wait_for_change(rx, SLOW_POLL);
             continue;
         };
 
@@ -225,14 +304,18 @@ fn run(app: &AppHandle, state: &PlayerState, manager: &Manager) -> WinResult<()>
         let was = state.lock().status;
         apply_status(app, state, status, &f.name);
 
-        let new_track = update_track(app, state, f, art_dir.as_ref());
+        let new_track = update_track(app, state, f, art_dir);
         let hard = switched || new_track || was != Some(status);
-        // A seek from our UI asks for a fresh read; consume it without waiting.
+        // A seek from our UI asks for a fresh, authoritative read.
         let asked = poll_notify(&state.repoll);
-        if hard || asked || tick.is_multiple_of(POSITION_EVERY) {
-            position_read(app, state, read_position(&f.session, status), hard || asked);
-        }
-        std::thread::sleep(TICK);
+        position_read(app, state, read_position(&f.session, status), hard || asked);
+        // Thumbnails often arrive a moment after the title: retry soon.
+        let wait = if f.art_url.is_none() && f.art_tries < ART_RETRIES {
+            Duration::from_millis(500)
+        } else {
+            SLOW_POLL
+        };
+        wait_for_change(rx, wait);
     }
 }
 
@@ -348,14 +431,15 @@ fn save_thumbnail(
     let mut bytes = vec![0u8; read as usize];
     reader.ReadBytes(&mut bytes)?;
 
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    key.hash(&mut hasher);
-    let path = dir.join(format!("{:016x}.img", hasher.finish()));
+    // Stable across Rust releases, unlike DefaultHasher, so cached files stay valid.
+    let path = dir.join(format!("{}.img", crate::paths::stable_hash(key)));
     if let Err(e) = std::fs::create_dir_all(dir).and_then(|()| std::fs::write(&path, &bytes)) {
         tracing::warn!("could not cache thumbnail: {e}");
         return Ok(None);
     }
-    Ok(Some(format!("file://{}", path.display())))
+    // A proper file URL (file:///C:/...), percent-encoded, so paths with `%`
+    // or non-ASCII characters survive the round trip through the artwork service.
+    Ok(reqwest::Url::from_file_path(&path).ok().map(String::from))
 }
 
 /// Takes a pending `notify_one` permit without blocking.

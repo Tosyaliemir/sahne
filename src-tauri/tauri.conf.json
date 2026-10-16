@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Sahne",
-  "version": "0.1.0",
-  "identifier": "dev.sahne.app",
+  "version": "../package.json",
+  "identifier": "io.github.tosyaliemir.Sahne",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -21,26 +21,49 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost blob:",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost asset: http://asset.localhost",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'",
+        "frame-ancestors": "'none'"
+      },
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "$CACHE/sahne/art/**",
-          "$CACHE/sahne/cache/art/**"
-        ]
+        "scope": ["$CACHE/sahne/art/**", "$CACHE/sahne/cache/art/**"]
+      },
+      "devCsp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost blob:",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost asset: http://asset.localhost ws://localhost:1420 http://localhost:1420",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'",
+        "frame-ancestors": "'none'"
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "appimage",
-      "deb"
-    ],
+    "targets": ["appimage", "deb"],
     "category": "Music",
-    "shortDescription": "Spotify için animasyonlu sözler ve ortam renkleri",
-    "longDescription": "Sahne, Spotify'da (veya sistem medya kontrollerine bağlanan başka bir oynatıcıda) çalan şarkının sözlerini senkronize ve kelime kelime animasyonlu olarak tam ekranda gösterir; arka planı albüm kapağının renklerine büründürür.",
+    "shortDescription": "Synchronized, animated lyrics and ambient colors for your desktop music player",
+    "longDescription": "Sahne shows the lyrics of whatever is playing in Spotify (or any player that reports to the system media controls) synchronized and animated word by word, over a backdrop made from the album artwork's colors.",
     "license": "MIT",
+    "resources": {
+      "../LICENSE": "licenses/LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md",
+      "../src/assets/licenses/rust.txt": "licenses/rust-dependencies.txt",
+      "../src/assets/licenses/npm.txt": "licenses/npm-dependencies.txt"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
@@ -57,20 +80,18 @@
         "bundleMediaFramework": false
       }
     },
-    "publisher": "Sahne",
+    "publisher": "Sahne contributors",
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
       },
       "nsis": {
         "installMode": "currentUser",
-        "languages": [
-          "Turkish",
-          "English"
-        ],
+        "languages": ["English", "Turkish"],
         "displayLanguageSelector": false
       }
-    }
+    },
+    "copyright": "Copyright (c) 2026 Sahne contributors"
   },
   "mainBinaryName": "sahne"
 }

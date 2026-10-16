@@ -75,16 +75,26 @@
     <button onclick={onMini} title={t("controls.mini")} aria-label={t("controls.mini")}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zm2 2v10h14V7zm6 5h6v4h-6z" /></svg>
     </button>
-    <button onclick={onToggleFullscreen} title={t("controls.fullscreen")} aria-label={t("controls.fullscreen")}>
+    <button
+      onclick={onToggleFullscreen}
+      title={t("controls.fullscreen")}
+      aria-label={t("controls.fullscreen")}
+    >
       {#if fullscreen}
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v5H3v2h7V3zm8 0h-2v7h7V8h-5zM3 14v2h5v5h2v-7zm11 0v7h2v-5h5v-2z" /></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="M8 3v5H3v2h7V3zm8 0h-2v7h7V8h-5zM3 14v2h5v5h2v-7zm11 0v7h2v-5h5v-2z" /></svg
+        >
       {:else}
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zM3 14h2v5h5v2H3zm16 0h2v7h-7v-2h5z" /></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zM3 14h2v5h5v2H3zm16 0h2v7h-7v-2h5z" /></svg
+        >
       {/if}
     </button>
     <button onclick={onSettings} title={t("controls.settings")} aria-label={t("controls.settings")}>
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L14.9 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.4 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.9h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM12.9 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" />
+        <path
+          d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L14.9 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.4 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.9h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM12.9 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"
+        />
       </svg>
     </button>
   </div>
@@ -122,6 +132,12 @@
     transform: translateY(0);
     pointer-events: auto;
   }
+  /* While the backdrop moves the blur is recomputed every frame (costly on
+     integrated GPUs); a denser fill looks close. Paused, it's static. */
+  :global(html:not(.idle)) .bar.visible {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-dark-bg) 86%, transparent);
+  }
   .track {
     display: flex;
     align-items: center;
@@ -135,7 +151,9 @@
     border-radius: 8px;
     background: none;
     cursor: default;
-    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease;
+    transition:
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 200ms ease;
   }
   .thumb.active {
     cursor: zoom-out;

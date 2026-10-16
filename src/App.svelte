@@ -10,12 +10,14 @@
   import { settings } from "./lib/stores/settings.svelte";
   import { t } from "./lib/i18n/index.svelte";
   import { startFrameStats } from "./lib/perf";
+  import { Lifecycle } from "./lib/lifecycle";
+  import { frames } from "./lib/frames";
   import Background from "./lib/components/Background.svelte";
   import FlowBackground from "./lib/components/FlowBackground.svelte";
   import StatusScreen from "./lib/components/StatusScreen.svelte";
   import LyricsView from "./lib/components/LyricsView.svelte";
   import KineticView from "./lib/components/KineticView.svelte";
-  import HarmanView from "./lib/components/HarmanView.svelte";
+  import BlendView from "./lib/components/BlendView.svelte";
   import WallView from "./lib/components/WallView.svelte";
   import EdgeGlow from "./lib/components/EdgeGlow.svelte";
   import PlainLyrics from "./lib/components/PlainLyrics.svelte";
@@ -23,7 +25,7 @@
   import ControlBar from "./lib/components/ControlBar.svelte";
   import SettingsPanel from "./lib/components/SettingsPanel.svelte";
   import CoverArt from "./lib/components/CoverArt.svelte";
-
+  import LyricsAnnouncer from "./lib/components/LyricsAnnouncer.svelte";
 
   /** WebGL missing or failing: fall back to the CSS backdrop. */
   let flowUnsupported = $state(false);
@@ -32,24 +34,49 @@
   const appWindow = getCurrentWindow();
 
   onMount(() => {
-    const stops: (() => void)[] = [];
-    settings.start().then((s) => stops.push(s));
-    player.start().then((s) => stops.push(s));
-    lyrics.start().then((s) => stops.push(s));
-    palette.start().then((s) => stops.push(s));
-    appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
-    listen<boolean>("screensaver", (e) => {
-      ui.screensaver = e.payload;
-      if (e.payload) {
-        ui.settingsOpen = false;
-        ui.controlsVisible = false;
-      }
-      appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
-    }).then((u) => stops.push(u));
+    const life = new Lifecycle();
+    life.add(settings.start());
+    life.add(player.start());
+    life.add(lyrics.start());
+    life.add(palette.start());
+    appWindow
+      .isFullscreen()
+      .then((f) => (fullscreen = f))
+      .catch(() => {});
+    life.add(
+      listen<boolean>("screensaver", (e) => {
+        ui.screensaver = e.payload;
+        if (e.payload) {
+          ui.settingsOpen = false;
+          ui.controlsVisible = false;
+        }
+        appWindow
+          .isFullscreen()
+          .then((f) => (fullscreen = f))
+          .catch(() => {});
+      }),
+    );
+    // Hidden or minimised: draw nothing. WebKitGTK doesn't always report
+    // minimising through visibilityState, so ask the window as well.
+    let minimized = false;
+    const updateHidden = () => {
+      const hidden = document.visibilityState === "hidden" || minimized;
+      ui.windowHidden = hidden;
+      frames.setHidden(hidden);
+    };
+    document.addEventListener("visibilitychange", updateHidden);
+    life.add(() => document.removeEventListener("visibilitychange", updateHidden));
+    life.add(
+      appWindow.onResized(async () => {
+        minimized = await appWindow.isMinimized().catch(() => false);
+        updateHidden();
+      }),
+    );
+    updateHidden();
     bumpControls();
-    if (import.meta.env.DEV) stops.push(startFrameStats("frames"));
+    if (import.meta.env.DEV) life.add(startFrameStats("frames"));
     return () => {
-      stops.forEach((s) => s());
+      life.dispose();
       clearTimeout(hideTimer);
     };
   });
@@ -74,6 +101,15 @@
     void settings.current.controls_hide_secs;
     untrack(bumpControls);
   });
+
+  // Mouse moves arrive at display rate; resetting timers that often is waste.
+  let lastMove = 0;
+  function onMouseMove(e: MouseEvent) {
+    if (e.timeStamp - lastMove < MOVE_THROTTLE_MS) return;
+    lastMove = e.timeStamp;
+    bumpControls();
+  }
+  const MOVE_THROTTLE_MS = 100;
 
   // --- toast ----------------------------------------------------------------
   let toast = $state<string | null>(null);
@@ -138,7 +174,9 @@
         if (player.volume !== null) {
           e.preventDefault();
           player.setVolume(player.volume + (e.key === "ArrowUp" ? 0.05 : -0.05));
-          showToast(t("toast.volume", { value: String(Math.round(Math.min(1, Math.max(0, player.volume)) * 100)) }));
+          showToast(
+            t("toast.volume", { value: String(Math.round(Math.min(1, Math.max(0, player.volume)) * 100)) }),
+          );
         }
         break;
       case "[":
@@ -177,15 +215,23 @@
 
   const data = $derived(lyrics.forTrack);
 
+  // Ambient CSS animations (drifting backdrop, edge light...) pause with
+  // playback and while hidden; see `html.idle` rules in the components.
+  $effect(() => {
+    document.documentElement.classList.toggle("idle", ui.windowHidden || player.status !== "playing");
+  });
+
   const style = $derived(ui.effectiveStyle);
 </script>
 
-<svelte:window onkeydown={onKey} onmousemove={bumpControls} onmousedown={bumpControls} />
+<svelte:window onkeydown={onKey} onmousemove={onMouseMove} onmousedown={bumpControls} />
 
-{#if settings.current.backdrop_style === "akiskan" && !flowUnsupported}
+{#if settings.current.backdrop_style === "fluid" && !flowUnsupported}
   <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
 {:else}
-  <Background mode={settings.current.backdrop_style === "akiskan" ? "bulanik" : settings.current.backdrop_style} />
+  <Background
+    mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style}
+  />
 {/if}
 {#if settings.current.edge_glow && player.track}
   <EdgeGlow />
@@ -210,7 +256,6 @@
       </aside>
       <!-- In the split view a click anywhere on the lyrics enlarges them
            instead of seeking; once enlarged, clicking a line seeks. -->
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <section
         class="pane"
         class:switching={ui.switching}
@@ -222,21 +267,21 @@
         }}
       >
         {#if data.state === "synced"}
-    {#key data.track_id}
-      {#if style === "kinetik"}
-        <KineticView {data} />
-      {:else if style === "harman"}
-        <HarmanView {data} />
-      {:else if style === "duvar"}
-        <WallView {data} />
-      {:else}
-        <LyricsView {data} {style} />
-      {/if}
-    {/key}
+          {#key data.track_id}
+            {#if style === "kinetic"}
+              <KineticView {data} />
+            {:else if style === "blend"}
+              <BlendView {data} />
+            {:else if style === "wall"}
+              <WallView {data} />
+            {:else}
+              <LyricsView {data} {style} />
+            {/if}
+          {/key}
         {:else}
-    {#key data.track_id}
-      <PlainLyrics text={data.plain ?? ""} />
-    {/key}
+          {#key data.track_id}
+            <PlainLyrics text={data.plain ?? ""} />
+          {/key}
         {/if}
       </section>
     </div>
@@ -258,8 +303,13 @@
 
   {#if player.track && player.status !== "playing"}
     <div class="paused" role="status">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
-      {t("status.paused")}
+      {#if player.status === "stopped"}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>
+        {t("status.stopped")}
+      {:else}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+        {t("status.paused")}
+      {/if}
     </div>
   {/if}
 
@@ -267,6 +317,8 @@
     <div class="toast" role="status">{toast}</div>
   {/if}
 </main>
+
+<LyricsAnnouncer />
 
 {#if ui.settingsOpen}
   <SettingsPanel onClose={() => (ui.settingsOpen = false)} />
@@ -404,7 +456,15 @@
     font-variant-numeric: tabular-nums;
     animation: fade-in 200ms ease;
   }
+  /* While the backdrop moves, a backdrop blur is recomputed every frame;
+     a denser fill looks close and costs nothing. (Paused, it's static.) */
+  :global(html:not(.idle)) .toast {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-dark-bg) 86%, transparent);
+  }
   @keyframes fade-in {
-    from { opacity: 0; }
+    from {
+      opacity: 0;
+    }
   }
 </style>

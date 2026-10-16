@@ -21,6 +21,7 @@ use tokio::sync::{watch, Notify};
 
 use crate::error::{AppError, AppResult};
 use crate::events::{self, PlaybackState, PlaybackStatus, PlayerSnapshot, PositionSync, TrackInfo};
+use crate::sync::lock;
 #[cfg(windows)]
 use gsmtc::Handle;
 #[cfg(target_os = "linux")]
@@ -76,15 +77,12 @@ impl PlayerState {
     }
 
     fn preferred(&self) -> Option<String> {
-        self.preferred
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
+        lock(&self.preferred).clone()
     }
 
     /// Changes which player to prefer and re-runs selection right away.
     pub fn set_preferred(&self, preferred: Option<String>) {
-        let mut cur = self.preferred.lock().unwrap_or_else(|e| e.into_inner());
+        let mut cur = lock(&self.preferred);
         if *cur != preferred {
             *cur = preferred;
             self.reselect.notify_one();
@@ -96,8 +94,7 @@ impl PlayerState {
     }
 
     fn lock(&self) -> MutexGuard<'_, Shared> {
-        // A panic while holding the lock leaves plain data behind; keep going.
-        self.shared.lock().unwrap_or_else(|e| e.into_inner())
+        lock(&self.shared)
     }
 
     fn now_ms(&self) -> u64 {

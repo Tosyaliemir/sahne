@@ -1,5 +1,6 @@
 <script lang="ts">
   import { palette } from "../stores/palette.svelte";
+  import { player } from "../stores/player.svelte";
   import { settings } from "../stores/settings.svelte";
   import { ui } from "../stores/ui.svelte";
   import { t } from "../i18n/index.svelte";
@@ -21,7 +22,7 @@
 
   const src = $derived(failed ? null : palette.artSrc);
   // Heavy shaders are pointless when the system asks for less motion.
-  const chosen = $derived(ui.reducedMotion ? "yok" : settings.current.cover_effect);
+  const chosen = $derived(ui.reducedMotion ? "none" : settings.current.cover_effect);
   const accent = $derived(palette.palette.accent);
 
   /** Lightens a #rrggbb color toward white by `k` (0..1). */
@@ -49,8 +50,8 @@
   {@render plain()}
 {:else if chosen === "metal"}
   <MetalCover {src} textureSrc={palette.textureSrc} tint={lighten(accent, 0.45)} radius={radius + 4} />
-{:else if chosen === "elektrik"}
-  <ElectricBorder color={accent} {radius} {active}>
+{:else if chosen === "electric"}
+  <ElectricBorder color={accent} {radius} {active} paused={player.status !== "playing" || ui.windowHidden}>
     {@render plain()}
   </ElectricBorder>
 {:else}

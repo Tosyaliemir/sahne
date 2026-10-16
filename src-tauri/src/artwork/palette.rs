@@ -514,4 +514,32 @@ mod tests {
         assert!(parse_hex(&p.dark_bg).l < 0.3);
         assert_readable(&p);
     }
+
+    // T3: any artwork yields a complete, readable palette.
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(48))]
+        #[test]
+        fn any_image_gives_a_readable_palette(
+            pixels in proptest::collection::vec(proptest::array::uniform3(0u8..=255), 1..=64),
+            width in 1u32..=8,
+        ) {
+            let height = (pixels.len() as u32).div_ceil(width);
+            let img = DynamicImage::ImageRgb8(RgbImage::from_fn(width, height, |x, y| {
+                Rgb(pixels[((y * width + x) as usize) % pixels.len()])
+            }));
+            let p = extract(&img);
+            let c = contrast(&parse_hex(&p.dark_bg), &parse_hex(&p.light_text));
+            proptest::prop_assert!(c >= MIN_CONTRAST, "contrast {c:.2} for {p:?}");
+            proptest::prop_assert_eq!(p.ambient.len(), AMBIENT_COLORS);
+            for hex in [&p.dominant, &p.vibrant, &p.muted, &p.dark_bg, &p.light_text, &p.accent]
+                .into_iter()
+                .chain(&p.ambient)
+            {
+                proptest::prop_assert!(
+                    hex.len() == 7 && hex.starts_with('#') && hex[1..].chars().all(|c| c.is_ascii_hexdigit()),
+                    "bad color {hex}"
+                );
+            }
+        }
+    }
 }
