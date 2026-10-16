@@ -48,6 +48,19 @@ pub enum CoverEffect {
     Yok,
 }
 
+/// How much GPU time the animated backdrop may use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PerformanceMode {
+    /// 30 fps, and a lower resolution if frames run slow; software
+    /// rendering falls back to the blurred backdrop.
+    Auto,
+    /// Full frame rate and resolution, even on software rendering.
+    Quality,
+    /// 20 fps at a lower resolution.
+    Battery,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FontChoice {
@@ -96,6 +109,7 @@ pub struct Settings {
     /// Off by default: it delays the system lock screen.
     pub screensaver_keep_awake: bool,
     pub cover_effect: CoverEffect,
+    pub performance_mode: PerformanceMode,
 }
 
 impl Default for Settings {
@@ -118,6 +132,7 @@ impl Default for Settings {
             screensaver_minutes: 3,
             screensaver_keep_awake: false,
             cover_effect: CoverEffect::Yok,
+            performance_mode: PerformanceMode::Auto,
         }
     }
 }
@@ -147,7 +162,7 @@ impl Settings {
         let Some(map) = value.as_object() else {
             return (s, vec!["<root>"]);
         };
-        lenient_fields!(s, map, bad; preferred_player, lyrics_style, font, font_scale, backdrop_blur, backdrop_dim, global_offset_ms, mini_position, start_fullscreen, controls_hide_secs, language, backdrop_style, edge_glow, screensaver_enabled, screensaver_minutes, screensaver_keep_awake, cover_effect);
+        lenient_fields!(s, map, bad; preferred_player, lyrics_style, font, font_scale, backdrop_blur, backdrop_dim, global_offset_ms, mini_position, start_fullscreen, controls_hide_secs, language, backdrop_style, edge_glow, screensaver_enabled, screensaver_minutes, screensaver_keep_awake, cover_effect, performance_mode);
         (s, bad)
     }
 

@@ -99,6 +99,15 @@
         {/each}
       </select>
     </label>
+    <label class="row">
+      <span>{t("settings.performance")}</span>
+      <select value={s.performance_mode}
+        onchange={(e) => set("performance_mode", e.currentTarget.value as Settings["performance_mode"])}>
+        {#each ["auto", "quality", "battery"] as const as m (m)}
+          <option value={m}>{t(`performance.${m}` as const)}</option>
+        {/each}
+      </select>
+    </label>
     <label class="row check">
       <span>{t("settings.edgeGlow")}</span>
       <input type="checkbox" checked={s.edge_glow} onchange={(e) => set("edge_glow", e.currentTarget.checked)} />
@@ -318,5 +327,10 @@
   }
   .hint.warn {
     color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  }
+  /* No per-frame re-blur while the backdrop moves (see ControlBar). */
+  :global(html:not(.idle)) .panel {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-dark-bg) 93%, transparent);
   }
 </style>

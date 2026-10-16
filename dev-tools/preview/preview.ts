@@ -79,6 +79,8 @@ const settings: Settings = {
   screensaver_minutes: 3,
   screensaver_keep_awake: false,
   cover_effect: (q.get("cover") as Settings["cover_effect"]) ?? "yok",
+  // Headless Chrome renders in software; keep the fluid backdrop anyway.
+  performance_mode: (q.get("perf") as Settings["performance_mode"]) ?? "quality",
 };
 
 const position = { position_ms: at, monotonic_ms: 0, playing: !paused, rate: 1, source: "player", hard: true } as const;

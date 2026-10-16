@@ -86,5 +86,9 @@
   "settings.cache": "Cache (lyrics and artwork)",
   "settings.cacheSize": "{mb} MB",
   "settings.clearCache": "Clear",
-  "status.stopped": "Stopped"
+  "status.stopped": "Stopped",
+  "settings.performance": "Performance mode",
+  "performance.auto": "Auto",
+  "performance.quality": "Quality",
+  "performance.battery": "Battery saver"
 }

@@ -86,5 +86,9 @@
   "settings.cache": "Önbellek (sözler ve kapaklar)",
   "settings.cacheSize": "{mb} MB",
   "settings.clearCache": "Temizle",
-  "status.stopped": "Durduruldu"
+  "status.stopped": "Durduruldu",
+  "settings.performance": "Performans modu",
+  "performance.auto": "Otomatik",
+  "performance.quality": "Kalite",
+  "performance.battery": "Pil tasarrufu"
 }

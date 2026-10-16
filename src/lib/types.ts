@@ -107,6 +107,9 @@ export interface Settings {
   screensaver_minutes: number;
   screensaver_keep_awake: boolean;
   cover_effect: CoverEffect;
+  performance_mode: PerformanceMode;
 }
+
+export type PerformanceMode = "auto" | "quality" | "battery";
 
 export type CoverEffect = "yok" | "metal" | "elektrik";
