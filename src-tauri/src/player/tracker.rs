@@ -2,12 +2,17 @@
 //!
 //! The player is the source of truth while it reports sane positions. Some
 //! Spotify builds always report `Position = 0`; after [`ZERO_STREAK_LIMIT`]
-//! consecutive zero reads while playing we switch to counting time ourselves
-//! from the last known anchor (track change, seek or resume).
+//! consecutive zero reads spanning at least [`ZERO_MIN_SPAN_MS`] while
+//! playing we switch to counting time ourselves from the last known anchor
+//! (track change, seek or resume).
 
 use crate::events::PositionSource;
 
 pub const ZERO_STREAK_LIMIT: u32 = 3;
+/// Reads come in bursts (connect, track change); a healthy player at the very
+/// start of a track reports 0 for all of them. Only zeros over this long a
+/// stretch mean the player is broken.
+pub const ZERO_MIN_SPAN_MS: u64 = 2_000;
 
 #[derive(Debug, Clone)]
 pub struct PositionTracker {
@@ -15,6 +20,8 @@ pub struct PositionTracker {
     anchor_time_ms: u64,
     playing: bool,
     zero_streak: u32,
+    /// When the current run of zero reads began.
+    zero_since_ms: u64,
     source: PositionSource,
 }
 
@@ -25,6 +32,7 @@ impl Default for PositionTracker {
             anchor_time_ms: 0,
             playing: false,
             zero_streak: 0,
+            zero_since_ms: 0,
             source: PositionSource::Player,
         }
     }
@@ -72,8 +80,13 @@ impl PositionTracker {
     pub fn polled(&mut self, pos_ms: u64, now_ms: u64) -> u64 {
         if pos_ms == 0 {
             if self.playing {
+                if self.zero_streak == 0 {
+                    self.zero_since_ms = now_ms;
+                }
                 self.zero_streak = self.zero_streak.saturating_add(1);
-                if self.zero_streak >= ZERO_STREAK_LIMIT {
+                if self.zero_streak >= ZERO_STREAK_LIMIT
+                    && now_ms.saturating_sub(self.zero_since_ms) >= ZERO_MIN_SPAN_MS
+                {
                     self.source = PositionSource::Estimated;
                 }
             }
@@ -105,6 +118,21 @@ mod tests {
         assert_eq!(t.source(), PositionSource::Player);
         // Between polls the estimate extrapolates from the last read.
         assert_eq!(t.estimate(2_500), 2_550);
+    }
+
+    // Found by the MPRIS end-to-end test: on connect, several reads arrive
+    // within milliseconds; a healthy player at 0 must not be flagged.
+    #[test]
+    fn a_burst_of_zero_reads_is_not_a_broken_player() {
+        let mut t = PositionTracker::default();
+        t.track_changed(0, 10_000);
+        t.set_playing(true, 10_000);
+        for ms in 0..5 {
+            t.polled(0, 10_000 + ms);
+        }
+        assert_eq!(t.source(), PositionSource::Player);
+        assert_eq!(t.polled(0, 12_000), 2_000);
+        assert_eq!(t.source(), PositionSource::Estimated);
     }
 
     #[test]
