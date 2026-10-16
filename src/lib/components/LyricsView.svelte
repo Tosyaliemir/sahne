@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { onPlaybackFrame } from "../playbackFrames";
   import { lyrics } from "../stores/lyrics.svelte";
   import { activeLineIndex, INTERLUDE_MIN_MS, lyricTime, wordTimings } from "../timing";
   import { LineFiller } from "../wordFill";
@@ -121,14 +122,11 @@
   }
 
   onMount(() => {
-    let raf = requestAnimationFrame(function loop(now) {
-      frame(now);
-      raf = requestAnimationFrame(loop);
-    });
+    const stop = onPlaybackFrame(frame);
     const onResize = () => layout();
     window.addEventListener("resize", onResize);
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       window.removeEventListener("resize", onResize);
     };
   });
@@ -141,29 +139,33 @@
 <div class="stage {style}">
   {#each lines as line, i (i)}
     {@const d = i - active}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div
-      class="line"
-      class:active={d === 0}
-      class:near={Math.abs(d) === 1}
-      class:past={d < 0}
-      class:far={Math.abs(d) > WINDOW}
-      {@attach register(lineEls, i)}
-      style:transform={transforms[i]}
-      role="button"
-      tabindex="-1"
-      onclick={() => seekTo(line)}
-    >
-      {#if isBreak(i)}
-        <div class="dots-wrap" {@attach register(dotsEls, i)}>
-          <Interlude />
-        </div>
-      {:else}
-        {#each words[i] as w, j (j)}
-          <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
-        {/each}
-      {/if}
-    </div>
+    <!-- Only the visible window (plus one line either side, so lines slide
+         in already laid out) is in the DOM; a song can have 100+ lines. -->
+    {#if Math.abs(i - Math.max(0, active)) <= WINDOW + 1}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div
+        class="line"
+        class:active={d === 0}
+        class:near={Math.abs(d) === 1}
+        class:past={d < 0}
+        class:far={Math.abs(d) > WINDOW}
+        {@attach register(lineEls, i)}
+        style:transform={transforms[i]}
+        role="button"
+        tabindex="-1"
+        onclick={() => seekTo(line)}
+      >
+        {#if isBreak(i)}
+          <div class="dots-wrap" {@attach register(dotsEls, i)}>
+            <Interlude />
+          </div>
+        {:else}
+          {#each words[i] as w, j (j)}
+            <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
+          {/each}
+        {/if}
+      </div>
+    {/if}
   {/each}
 </div>
 
