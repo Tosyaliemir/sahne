@@ -88,6 +88,36 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 `pnpm format` applies Prettier. Rust code is formatted with `cargo fmt`.
 
+## Manual test checklist
+
+Automated tests cannot cover a real desktop session. Before a release, check
+these on as many of GNOME Wayland, KDE Plasma Wayland, X11 and Windows 11 as
+you can, and note which ones were not tested:
+
+- [ ] Change the track in Spotify: title, cover, colors and lyrics follow.
+- [ ] Seek in Spotify: the lyrics jump to the new position at once.
+- [ ] Pause and resume: the "Paused" badge appears and disappears, and the
+      lyrics stop and continue. While paused, the dev build logs `0 frames`.
+- [ ] Minimise or hide the window while playing: the dev build logs `0 frames`.
+- [ ] Quit Spotify: the "Spotify isn't open" screen appears; start it again and Sahne
+      reconnects by itself.
+- [ ] Disconnect from the network and play a song not played before: the
+      "Offline" screen appears, and the lyrics load once the network is back.
+- [ ] Play a song without lyrics and an instrumental: large cover with "No
+      lyrics found for this song" / "Instrumental".
+- [ ] Play a Turkish song: ç, ğ, ı, İ, ö, ş, ü render correctly, including in
+      the Wall style's capitals.
+- [ ] Shift the lyrics with `[` / `]`, restart Sahne: the offset is kept.
+- [ ] `L` switches between the split view and lyrics focus; `S` cycles through
+      all six styles; `F` toggles fullscreen; `M` opens the mini player and
+      back.
+- [ ] `↑` / `↓` change the volume (Linux); the volume control is hidden on
+      Windows.
+- [ ] Settings → About opens the licence texts; the language follows the
+      system when set to "System default".
+- [ ] Screensaver: with `SAHNE_SCREENSAVER_SECS=15`, Sahne comes forward after
+      15 s of inactivity while music plays and restores the windows on input.
+
 ## Commit style
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/):
