@@ -1,9 +1,21 @@
 /* Manrope (SIL OFL 1.1, see assets/fonts/OFL.txt): variable weight, full Turkish coverage. */
+/* Manrope (OFL 1.1, see assets/fonts/OFL.txt), split by script: the Latin
+   file (incl. Turkish) always loads; Greek, Cyrillic and Vietnamese load
+   only when such text is on screen. */
 @font-face {
   font-family: "Manrope";
-  src: url("./assets/fonts/Manrope.ttf") format("truetype");
+  src: url("./assets/fonts/Manrope-latin.woff2") format("woff2");
   font-weight: 200 800;
   font-display: block;
+  unicode-range: U+0000-00FF, U+0100-017F, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+20A0-20CF, U+2122, U+2190-2199, U+2212, U+FEFF;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("./assets/fonts/Manrope-extended.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: block;
+  unicode-range: U+0180-024F, U+0370-03FF, U+0400-04FF, U+1E00-1EFF;
 }
 
 /* Palette roles, set from the album art. Registering them as <color> lets
