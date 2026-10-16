@@ -1,4 +1,4 @@
-export const STYLES = ["klasik", "kinetik", "sade", "dalga", "harman", "duvar"] as const;
+export const STYLES = ["classic", "kinetic", "minimal", "wave", "blend", "wall"] as const;
 export type LyricsStyle = (typeof STYLES)[number];
 
 const reducedMotion =
@@ -8,7 +8,7 @@ const SWITCH_FADE_MS = 220;
 
 class UiStore {
   /** Style chosen by the user; the settings store keeps it in sync. */
-  style = $state<LyricsStyle>("klasik");
+  style = $state<LyricsStyle>("classic");
   reducedMotion = $state(reducedMotion?.matches ?? false);
   controlsVisible = $state(true);
   settingsOpen = $state(false);
@@ -31,7 +31,7 @@ class UiStore {
 
   /** What is actually rendered: reduced motion always wins. */
   get effectiveStyle(): LyricsStyle {
-    return this.reducedMotion ? "sade" : this.style;
+    return this.reducedMotion ? "minimal" : this.style;
   }
 
   /**

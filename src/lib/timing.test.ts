@@ -3,7 +3,7 @@ import {
   activeLineIndex,
   activeWordIndex,
   FAST_WORDS_PER_SEC,
-  harmanPlan,
+  blendPlan,
   interludeAt,
   lyricTime,
   MAX_MS_PER_CHAR,
@@ -119,7 +119,7 @@ describe("interludeAt", () => {
   });
 });
 
-describe("harmanPlan", () => {
+describe("blendPlan", () => {
   // 12 words in 2.5 s ≈ 4.8 words/s: a fast rap line.
   const fastLine = (s: number) => line(s, s + 2500, "one two three four five six seven eight nine ten eleven twelve");
   // 5 words over 4 s: ordinary singing.
@@ -134,10 +134,10 @@ describe("harmanPlan", () => {
   it("switches for a sustained fast passage only", () => {
     const lines = [slowLine(0), fastLine(4000), fastLine(6500), slowLine(9000), fastLine(13000), slowLine(15500)];
     // Two fast lines (5 s) form a passage; the lone fast line (2.5 s) does not.
-    expect(harmanPlan(lines)).toEqual([false, true, true, false, false, false]);
+    expect(blendPlan(lines)).toEqual([false, true, true, false, false, false]);
   });
 
   it("handles empty input", () => {
-    expect(harmanPlan([])).toEqual([]);
+    expect(blendPlan([])).toEqual([]);
   });
 });

@@ -7,31 +7,44 @@ use serde::{Deserialize, Serialize};
 
 use crate::paths::{self, Paths};
 
+// Stored values are English; the Turkish names used up to 0.1 are still
+// accepted through `alias`, so existing settings files keep working (R3).
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LyricsStyle {
-    Klasik,
-    Kinetik,
-    Sade,
+    #[serde(alias = "klasik")]
+    Classic,
+    #[serde(alias = "kinetik")]
+    Kinetic,
+    #[serde(alias = "sade")]
+    Minimal,
     /// Classic layout; words rise into place as they are sung.
-    Dalga,
+    #[serde(alias = "dalga")]
+    Wave,
     /// Classic, switching to kinetic for fast passages.
-    Harman,
+    #[serde(alias = "harman")]
+    Blend,
     /// Recent lines stacked into a wall that drifts in 3D.
-    Duvar,
+    #[serde(alias = "duvar")]
+    Wall,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BackdropStyle {
     /// WebGL: the artwork itself, slowly flowing and swirling.
-    Akiskan,
+    #[serde(alias = "akiskan")]
+    Fluid,
     /// Pre-blurred artwork with drifting color fields.
-    Bulanik,
+    #[serde(alias = "bulanik")]
+    Blurred,
     /// The sharp, original cover, slowly zooming, darkened for readability.
-    Kapak,
+    #[serde(alias = "kapak")]
+    Cover,
     /// A calm gradient made from the cover's colors.
-    Renk,
+    #[serde(alias = "renk")]
+    Color,
 }
 
 /// What the cover in the split view (and the no-lyrics screen) wears.
@@ -41,11 +54,12 @@ pub enum CoverEffect {
     /// Cover set into a brushed metal plate that mirrors it.
     Metal,
     /// Crackling light running around the cover's edge.
-    Elektrik,
-    /// No effect; also what a removed effect (e.g. an old "holo") reads as.
-    /// `serde(other)` must be on the last variant.
+    #[serde(alias = "elektrik")]
+    Electric,
+    /// No effect; also what a removed effect (e.g. an old "holo") or the
+    /// old "yok" reads as. `serde(other)` must be on the last variant.
     #[serde(other)]
-    Yok,
+    None,
 }
 
 /// How much GPU time the animated backdrop may use.
@@ -72,6 +86,8 @@ pub enum FontChoice {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Language {
+    /// Follow the system locale (Turkish if it is Turkish, else English).
+    System,
     Tr,
     En,
 }
@@ -116,7 +132,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             preferred_player: None,
-            lyrics_style: LyricsStyle::Klasik,
+            lyrics_style: LyricsStyle::Classic,
             font: FontChoice::Embedded,
             font_scale: 1.0,
             backdrop_blur: 0,
@@ -125,13 +141,13 @@ impl Default for Settings {
             mini_position: None,
             start_fullscreen: false,
             controls_hide_secs: 2,
-            language: Language::Tr,
-            backdrop_style: BackdropStyle::Akiskan,
+            language: Language::System,
+            backdrop_style: BackdropStyle::Fluid,
             edge_glow: false,
             screensaver_enabled: true,
             screensaver_minutes: 3,
             screensaver_keep_awake: false,
-            cover_effect: CoverEffect::Yok,
+            cover_effect: CoverEffect::None,
             performance_mode: PerformanceMode::Auto,
         }
     }
@@ -289,8 +305,8 @@ mod tests {
     #[test]
     fn missing_fields_fall_back_to_defaults() {
         let s: Settings =
-            serde_json::from_value(json!({"lyrics_style": "kinetik", "language": "en"})).unwrap();
-        assert_eq!(s.lyrics_style, LyricsStyle::Kinetik);
+            serde_json::from_value(json!({"lyrics_style": "kinetic", "language": "en"})).unwrap();
+        assert_eq!(s.lyrics_style, LyricsStyle::Kinetic);
         assert_eq!(s.language, Language::En);
         assert_eq!(s.font_scale, 1.0);
     }
@@ -322,10 +338,10 @@ mod tests {
         };
         let store = SettingsStore::load(&paths);
         assert_eq!(store.get(), Settings::default());
-        store.update(|s| s.lyrics_style = LyricsStyle::Sade);
+        store.update(|s| s.lyrics_style = LyricsStyle::Minimal);
         assert_eq!(
             SettingsStore::load(&paths).get().lyrics_style,
-            LyricsStyle::Sade
+            LyricsStyle::Minimal
         );
         std::fs::remove_dir_all(base).unwrap();
     }
@@ -334,15 +350,66 @@ mod tests {
     fn removed_cover_effect_falls_back_to_none() {
         let s: Settings =
             serde_json::from_value(json!({"cover_effect": "holo", "language": "en"})).unwrap();
-        assert_eq!(s.cover_effect, CoverEffect::Yok);
+        assert_eq!(s.cover_effect, CoverEffect::None);
         assert_eq!(s.language, Language::En);
+    }
+
+    // R3: settings written by 0.1 (Turkish values) still load.
+    #[test]
+    fn legacy_turkish_values_load() {
+        let styles = [
+            ("klasik", LyricsStyle::Classic),
+            ("kinetik", LyricsStyle::Kinetic),
+            ("sade", LyricsStyle::Minimal),
+            ("dalga", LyricsStyle::Wave),
+            ("harman", LyricsStyle::Blend),
+            ("duvar", LyricsStyle::Wall),
+        ];
+        for (old, new) in styles {
+            let (s, bad) = Settings::from_value(&json!({ "lyrics_style": old }));
+            assert_eq!((s.lyrics_style, bad.len()), (new, 0), "{old}");
+        }
+        let backdrops = [
+            ("akiskan", BackdropStyle::Fluid),
+            ("bulanik", BackdropStyle::Blurred),
+            ("kapak", BackdropStyle::Cover),
+            ("renk", BackdropStyle::Color),
+        ];
+        for (old, new) in backdrops {
+            let (s, bad) = Settings::from_value(&json!({ "backdrop_style": old }));
+            assert_eq!((s.backdrop_style, bad.len()), (new, 0), "{old}");
+        }
+        let effects = [
+            ("yok", CoverEffect::None),
+            ("metal", CoverEffect::Metal),
+            ("elektrik", CoverEffect::Electric),
+        ];
+        for (old, new) in effects {
+            let (s, bad) = Settings::from_value(&json!({ "cover_effect": old }));
+            assert_eq!((s.cover_effect, bad.len()), (new, 0), "{old}");
+        }
+        // Saved again, they are written in English.
+        let (s, _) = Settings::from_value(
+            &json!({"lyrics_style": "duvar", "backdrop_style": "kapak", "cover_effect": "elektrik"}),
+        );
+        let v = serde_json::to_value(&s).unwrap();
+        assert_eq!(
+            (&v["lyrics_style"], &v["backdrop_style"], &v["cover_effect"]),
+            (&json!("wall"), &json!("cover"), &json!("electric"))
+        );
+        // A saved "tr" or "en" is kept; new installs follow the system.
+        assert_eq!(
+            Settings::from_value(&json!({"language": "tr"})).0.language,
+            Language::Tr
+        );
+        assert_eq!(Settings::default().language, Language::System);
     }
 
     // C2: one bad field must not discard the others.
     #[test]
     fn invalid_field_keeps_the_rest() {
         let (s, bad) = Settings::from_value(&json!({"lyrics_style": "disco", "font_scale": 1.4}));
-        assert_eq!(s.lyrics_style, LyricsStyle::Klasik);
+        assert_eq!(s.lyrics_style, LyricsStyle::Classic);
         assert_eq!(s.font_scale, 1.4);
         assert_eq!(bad, vec!["lyrics_style"]);
         let s: Settings =
@@ -383,10 +450,10 @@ mod tests {
         };
         let store = SettingsStore::load(&paths);
         store.update(|s| s.mini_position = Some((40, 60)));
-        let patch = json!({"lyrics_style": "dalga", "edge_glow": true});
+        let patch = json!({"lyrics_style": "wave", "edge_glow": true});
         let saved = store.apply_patch(patch.as_object().unwrap());
         assert_eq!(saved.mini_position, Some((40, 60)));
-        assert_eq!(saved.lyrics_style, LyricsStyle::Dalga);
+        assert_eq!(saved.lyrics_style, LyricsStyle::Wave);
         assert!(saved.edge_glow);
         let bad = json!({"font_scale": "huge"});
         assert_eq!(store.apply_patch(bad.as_object().unwrap()).font_scale, 1.0);

@@ -79,10 +79,10 @@
 
 <div class="mini" class:playing data-tauri-drag-region>
   <!-- Same backdrop as the stage, per settings; .mini contains and clips it. -->
-  {#if settings.current.backdrop_style === "akiskan" && !flowUnsupported}
+  {#if settings.current.backdrop_style === "fluid" && !flowUnsupported}
     <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
   {:else}
-    <Background mode={settings.current.backdrop_style === "akiskan" ? "bulanik" : settings.current.backdrop_style} />
+    <Background mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style} />
   {/if}
   <div class="shade" aria-hidden="true"></div>
 

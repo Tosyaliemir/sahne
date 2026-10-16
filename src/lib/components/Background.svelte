@@ -6,18 +6,18 @@
 
   /**
    * CSS backdrops:
-   * - bulanik: pre-blurred artwork with five drifting color fields
-   * - kapak: the sharp original cover, slowly zooming, darkened for reading
-   * - renk: only the drifting color fields, no artwork
+   * - blurred: pre-blurred artwork with five drifting color fields
+   * - cover: the sharp original cover, slowly zooming, darkened for reading
+   * - color: only the drifting color fields, no artwork
    * Everything animates with transform/opacity only.
    */
-  let { mode = "bulanik" }: { mode?: "bulanik" | "kapak" | "renk" } = $props();
+  let { mode = "blurred" }: { mode?: "blurred" | "cover" | "color" } = $props();
 
   // A CSS blur on an animated full-screen layer is expensive; the backend
   // already pre-blurs the artwork, so the extra blur is opt-in.
-  const extraBlur = $derived(mode === "bulanik" && settings.current.backdrop_blur > 0);
+  const extraBlur = $derived(mode === "blurred" && settings.current.backdrop_blur > 0);
   const imageSrc = $derived(
-    mode === "bulanik" ? palette.backgroundSrc : mode === "kapak" ? palette.artSrc : null,
+    mode === "blurred" ? palette.backgroundSrc : mode === "cover" ? palette.artSrc : null,
   );
   const fadeMs = $derived(ui.reducedMotion ? 0 : 800);
 </script>
@@ -27,7 +27,7 @@
     {#if imageSrc}
       <img
         class="art"
-        class:blurred={extraBlur}
+        class:extra-blur={extraBlur}
         src={imageSrc}
         alt=""
         transition:fade={{ duration: fadeMs }}
@@ -35,7 +35,7 @@
       />
     {/if}
   {/key}
-  {#if mode !== "kapak"}
+  {#if mode !== "cover"}
     <div class="mesh">
       {#each [0, 1, 2, 3, 4] as i (i)}
         <div class="blob b{i}" style:--color="var(--c-amb-{i})"></div>
@@ -63,11 +63,11 @@
     animation: drift 48s ease-in-out infinite alternate;
     will-change: transform;
   }
-  .art.blurred {
+  .art.extra-blur {
     filter: blur(var(--backdrop-blur));
   }
   /* The real cover: sharp, full-bleed, with a slow Ken Burns zoom. */
-  .kapak .art {
+  .cover .art {
     inset: 0;
     width: 100%;
     height: 100%;
@@ -79,7 +79,7 @@
     inset: 0;
     opacity: 0.62;
   }
-  .renk .mesh {
+  .color .mesh {
     opacity: 0.85;
   }
   .blob {
@@ -103,7 +103,7 @@
     opacity: var(--backdrop-dim);
   }
   /* A sharp image under the lyrics needs much more help to stay readable. */
-  .kapak .dim {
+  .cover .dim {
     opacity: calc(0.45 + var(--backdrop-dim) * 0.6);
     background: radial-gradient(ellipse at center, var(--c-dark-bg) 0%, color-mix(in srgb, var(--c-dark-bg) 70%, transparent) 70%);
   }

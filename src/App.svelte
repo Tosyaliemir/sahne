@@ -17,7 +17,7 @@
   import StatusScreen from "./lib/components/StatusScreen.svelte";
   import LyricsView from "./lib/components/LyricsView.svelte";
   import KineticView from "./lib/components/KineticView.svelte";
-  import HarmanView from "./lib/components/HarmanView.svelte";
+  import BlendView from "./lib/components/BlendView.svelte";
   import WallView from "./lib/components/WallView.svelte";
   import EdgeGlow from "./lib/components/EdgeGlow.svelte";
   import PlainLyrics from "./lib/components/PlainLyrics.svelte";
@@ -218,10 +218,10 @@
 
 <svelte:window onkeydown={onKey} onmousemove={onMouseMove} onmousedown={bumpControls} />
 
-{#if settings.current.backdrop_style === "akiskan" && !flowUnsupported}
+{#if settings.current.backdrop_style === "fluid" && !flowUnsupported}
   <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
 {:else}
-  <Background mode={settings.current.backdrop_style === "akiskan" ? "bulanik" : settings.current.backdrop_style} />
+  <Background mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style} />
 {/if}
 {#if settings.current.edge_glow && player.track}
   <EdgeGlow />
@@ -259,11 +259,11 @@
       >
         {#if data.state === "synced"}
     {#key data.track_id}
-      {#if style === "kinetik"}
+      {#if style === "kinetic"}
         <KineticView {data} />
-      {:else if style === "harman"}
-        <HarmanView {data} />
-      {:else if style === "duvar"}
+      {:else if style === "blend"}
+        <BlendView {data} />
+      {:else if style === "wall"}
         <WallView {data} />
       {:else}
         <LyricsView {data} {style} />

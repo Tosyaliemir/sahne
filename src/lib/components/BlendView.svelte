@@ -4,13 +4,13 @@
   import type { LyricsLoaded } from "../types";
   import { player } from "../stores/player.svelte";
   import { lyrics } from "../stores/lyrics.svelte";
-  import { activeLineIndex, harmanPlan, lyricTime } from "../timing";
+  import { activeLineIndex, blendPlan, lyricTime } from "../timing";
   import LyricsView from "./LyricsView.svelte";
   import KineticView from "./KineticView.svelte";
 
   /**
    * Classic flow that hands over to the kinetic style for fast passages
-   * (see harmanPlan) and back again. Going kinetic is quick, to catch the
+   * (see blendPlan) and back again. Going kinetic is quick, to catch the
    * moment; coming back waits a beat and eases in slowly, so the switch back
    * to the full line stack doesn't feel like a jolt.
    */
@@ -19,7 +19,7 @@
   /** Stay kinetic this long after a fast passage ends. */
   const RETURN_DELAY_MS = 800;
 
-  const plan = $derived(harmanPlan(data.lines));
+  const plan = $derived(blendPlan(data.lines));
   let kinetic = $state(false);
 
   onMount(() => {
@@ -38,7 +38,7 @@
   });
 </script>
 
-<div class="layer classic" class:shown={!kinetic}><LyricsView {data} style="klasik" /></div>
+<div class="layer classic" class:shown={!kinetic}><LyricsView {data} style="classic" /></div>
 <div class="layer kinetic" class:shown={kinetic}><KineticView {data} /></div>
 
 <style>

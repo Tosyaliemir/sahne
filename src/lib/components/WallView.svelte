@@ -10,7 +10,7 @@
   import Interlude from "./Interlude.svelte";
 
   /**
-   * "Duvar": the last few lines stacked into a wall of big type that hangs
+   * "Wall": the last few lines stacked into a wall of big type that hangs
    * at an angle in 3D and slowly sways. Each new line pushes the wall up;
    * older lines recede into the distance and fade.
    */

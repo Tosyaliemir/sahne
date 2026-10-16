@@ -3,11 +3,11 @@
  * be checked (or screenshotted headlessly) without Spotify or a window.
  *
  *   pnpm vite --port 1430
- *   http://127.0.0.1:1430/preview.html?view=main&style=klasik&at=12500
+ *   http://127.0.0.1:1430/preview.html?view=main&style=classic&at=12500
  *
- * Parameters: view=main|mini, style=klasik|kinetik|sade, at=<ms position>,
+ * Parameters: view=main|mini, style=classic|kinetic|minimal, at=<ms position>,
  * panel=settings, lyrics=synced|plain|loading|not_found, paused=1, lang=en,
- * bg=akiskan|bulanik|kapak|renk, glow=1, cover=metal|elektrik, bar=1 (bottom bar never hides), static=1 (no CSS transitions/animations, for stable screenshots; also run
+ * bg=fluid|blurred|cover|color, glow=1, cover=metal|electric, bar=1 (bottom bar never hides), static=1 (no CSS transitions/animations, for stable screenshots; also run
  * Chrome with --force-prefers-reduced-motion so Svelte transitions are instant)
  */
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -64,7 +64,7 @@ const palette: PaletteChanged = {
 
 const settings: Settings = {
   preferred_player: null,
-  lyrics_style: (q.get("style") as Settings["lyrics_style"]) ?? "klasik",
+  lyrics_style: (q.get("style") as Settings["lyrics_style"]) ?? "classic",
   font: "embedded",
   font_scale: 1,
   backdrop_blur: 0,
@@ -73,13 +73,13 @@ const settings: Settings = {
   mini_position: null,
   start_fullscreen: false,
   controls_hide_secs: q.get("bar") === "1" ? 0 : 2,
-  language: q.get("lang") === "en" ? "en" : "tr",
-  backdrop_style: (q.get("bg") as Settings["backdrop_style"]) ?? "akiskan",
+  language: q.get("lang") === "tr" ? "tr" : "en",
+  backdrop_style: (q.get("bg") as Settings["backdrop_style"]) ?? "fluid",
   edge_glow: q.get("glow") === "1",
   screensaver_enabled: true,
   screensaver_minutes: 3,
   screensaver_keep_awake: false,
-  cover_effect: (q.get("cover") as Settings["cover_effect"]) ?? "yok",
+  cover_effect: (q.get("cover") as Settings["cover_effect"]) ?? "none",
   // Headless Chrome renders in software; keep the fluid backdrop anyway.
   performance_mode: (q.get("perf") as Settings["performance_mode"]) ?? "quality",
 };

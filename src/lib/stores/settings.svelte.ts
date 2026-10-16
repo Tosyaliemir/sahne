@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Settings } from "../types";
-import { setLang } from "../i18n/index.svelte";
+import { resolveLang, setLang } from "../i18n/index.svelte";
 import { ui } from "./ui.svelte";
 import { frames } from "../frames";
 
@@ -9,7 +9,7 @@ const SAVE_DELAY_MS = 300;
 
 export const DEFAULT_SETTINGS: Settings = {
   preferred_player: null,
-  lyrics_style: "klasik",
+  lyrics_style: "classic",
   font: "embedded",
   font_scale: 1,
   backdrop_blur: 0,
@@ -18,13 +18,13 @@ export const DEFAULT_SETTINGS: Settings = {
   mini_position: null,
   start_fullscreen: false,
   controls_hide_secs: 2,
-  language: "tr",
-  backdrop_style: "akiskan",
+  language: "system",
+  backdrop_style: "fluid",
   edge_glow: false,
   screensaver_enabled: true,
   screensaver_minutes: 3,
   screensaver_keep_awake: false,
-  cover_effect: "yok",
+  cover_effect: "none",
   performance_mode: "auto",
 };
 
@@ -71,8 +71,9 @@ class SettingsStore {
     this.current = s;
     frames.wake();
     ui.style = s.lyrics_style;
-    setLang(s.language);
-    document.documentElement.lang = s.language;
+    const lang = resolveLang(s.language);
+    setLang(lang);
+    document.documentElement.lang = lang;
     const root = document.documentElement.style;
     root.setProperty("--lyrics-scale", String(s.font_scale));
     root.setProperty("--backdrop-blur", `${s.backdrop_blur}px`);

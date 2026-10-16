@@ -65,6 +65,7 @@
     <label class="row">
       <span>{t("settings.language")}</span>
       <select value={s.language} onchange={(e) => set("language", e.currentTarget.value as Settings["language"])}>
+        <option value="system">{t("settings.languageSystem")}</option>
         <option value="tr">Türkçe</option>
         <option value="en">English</option>
       </select>
@@ -95,7 +96,7 @@
       <span>{t("settings.backdrop")}</span>
       <select value={s.backdrop_style}
         onchange={(e) => set("backdrop_style", e.currentTarget.value as Settings["backdrop_style"])}>
-        {#each ["akiskan", "bulanik", "kapak", "renk"] as const as b (b)}
+        {#each ["fluid", "blurred", "cover", "color"] as const as b (b)}
           <option value={b}>{t(`backdrop.${b}` as const)}</option>
         {/each}
       </select>
@@ -117,12 +118,12 @@
       <span>{t("settings.coverEffect")}</span>
       <select value={s.cover_effect}
         onchange={(e) => set("cover_effect", e.currentTarget.value as Settings["cover_effect"])}>
-        {#each ["yok", "metal", "elektrik"] as const as c (c)}
+        {#each ["none", "metal", "electric"] as const as c (c)}
           <option value={c}>{t(`coverEffect.${c}` as const)}</option>
         {/each}
       </select>
     </label>
-    {#if s.backdrop_style === "bulanik"}
+    {#if s.backdrop_style === "blurred"}
     <label class="row">
       <span>{t("settings.blur")} <em>{s.backdrop_blur}px</em></span>
       <input type="range" min="0" max="60" step="5" value={s.backdrop_blur}
