@@ -409,7 +409,17 @@ const createRenderer = (canvas: HTMLCanvasElement) => {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 255]),
+    );
     return texture;
   };
 
@@ -650,7 +660,15 @@ export function createReflectivePlate(
   const light = { p: 0, target: 0 };
   const pointer = { x: 0, y: 0 };
   const size = { width: body.offsetWidth, height: body.offsetHeight, scale: 1 };
-  const source: Source = { element: image, src: "", ready: false, failed: false, width: 0, height: 0, mix: 0 };
+  const source: Source = {
+    element: image,
+    src: "",
+    ready: false,
+    failed: false,
+    width: 0,
+    height: 0,
+    mix: 0,
+  };
   let presence = 1;
   let presenceStart = 0;
   let slowUntil = 0;

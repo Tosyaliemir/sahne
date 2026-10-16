@@ -8,11 +8,10 @@ labels: bug
 
 **Ne bekliyordun?**
 
-**Nasıl tekrarlanır?**
-1.
-2.
+**Nasıl tekrarlanır?** 1. 2.
 
 **Ortam**
+
 - Dağıtım ve masaüstü (ör. Arch + KDE Plasma 6, Ubuntu 24.04 + GNOME):
 - Wayland mı X11 mi:
 - Ekran kartı (ör. NVIDIA, AMD, Intel):
@@ -22,4 +21,5 @@ labels: bug
 **Log** (`RUST_LOG=sahne_lib=debug sahne` ile çalıştırıp ilgili kısmı ekle)
 
 ```
+
 ```

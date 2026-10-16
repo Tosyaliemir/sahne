@@ -26,8 +26,13 @@
     opacity: calc(0.25 + 0.75 * clamp(0, var(--progress, 0) * 3 - var(--i), 1));
   }
   @keyframes breathe {
-    0%, 100% { transform: scale(0.88); }
-    50% { transform: scale(1.12); }
+    0%,
+    100% {
+      transform: scale(0.88);
+    }
+    50% {
+      transform: scale(1.12);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .interlude {

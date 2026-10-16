@@ -50,14 +50,7 @@ export interface Line {
   words: Word[] | null;
 }
 
-export type LyricsState =
-  | "loading"
-  | "synced"
-  | "plain"
-  | "instrumental"
-  | "not_found"
-  | "offline"
-  | "error";
+export type LyricsState = "loading" | "synced" | "plain" | "instrumental" | "not_found" | "offline" | "error";
 
 export interface LyricsLoaded {
   track_id: string;

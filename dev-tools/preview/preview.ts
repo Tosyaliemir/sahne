@@ -34,7 +34,8 @@ const lyricsData: LyricsLoaded = {
   track_id: track.id,
   state: (q.get("lyrics") as LyricsLoaded["state"]) ?? "synced",
   offset_ms: 0,
-  plain: "Çiçekler sabahı bekliyor\nGölgede üşüyen İstanbul\nIşıklar ağır ağır sönüyor\nŞarkı bitmeden dönüyoruz",
+  plain:
+    "Çiçekler sabahı bekliyor\nGölgede üşüyen İstanbul\nIşıklar ağır ağır sönüyor\nŞarkı bitmeden dönüyoruz",
   lines: [
     line(0, 9_000, ""),
     line(9_000, 12_000, "Çiçekler sabahı bekliyor"),
@@ -84,7 +85,14 @@ const settings: Settings = {
   performance_mode: (q.get("perf") as Settings["performance_mode"]) ?? "quality",
 };
 
-const position = { position_ms: at, monotonic_ms: 0, playing: !paused, rate: 1, source: "player", hard: true } as const;
+const position = {
+  position_ms: at,
+  monotonic_ms: 0,
+  playing: !paused,
+  rate: 1,
+  source: "player",
+  hard: true,
+} as const;
 const snapshot: PlayerSnapshot = {
   track,
   playback: { status: paused ? "paused" : "playing", player: "sahnemock" },

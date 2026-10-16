@@ -6,8 +6,8 @@ Spotify'da (veya sistemin medya kontrollerine bağlanan başka bir oynatıcıda)
 
 ![Klasik stil, akışkan arka plan](docs/klasik.png)
 
-| Dalga stili | Bulanık arka plan |
-|---|---|
+| Dalga stili              | Bulanık arka plan            |
+| ------------------------ | ---------------------------- |
 | ![Dalga](docs/dalga.png) | ![Bulanık](docs/bulanik.png) |
 
 Mini mod: ![Mini mod](docs/mini.png)
@@ -35,15 +35,15 @@ Windows'ta `pnpm tauri build --bundles nsis` kurulum dosyasını `src-tauri/targ
 
 Spotify'ı açıp bir şarkı çal, Sahne'yi başlat. Birkaç yüz milisaniye içinde şarkıyı tanır, sözleri bulur ve sahneyi kurar.
 
-| Tuş | İşlev |
-|---|---|
-| `Boşluk` | Oynat / duraklat |
-| `←` / `→` | Önceki / sonraki şarkı |
-| `F` / `Esc` | Tam ekran / tam ekrandan çık |
-| `M` | Mini mod (küçük, her zaman üstte pencere) |
-| `S` | Animasyon stilini değiştir: **Klasik → Kinetik → Sade → Dalga → Harman** |
-| `[` / `]` | Bu şarkının sözlerini 100 ms öne al / geciktir (kalıcı) |
-| `,` | Ayarlar |
+| Tuş         | İşlev                                                                    |
+| ----------- | ------------------------------------------------------------------------ |
+| `Boşluk`    | Oynat / duraklat                                                         |
+| `←` / `→`   | Önceki / sonraki şarkı                                                   |
+| `F` / `Esc` | Tam ekran / tam ekrandan çık                                             |
+| `M`         | Mini mod (küçük, her zaman üstte pencere)                                |
+| `S`         | Animasyon stilini değiştir: **Klasik → Kinetik → Sade → Dalga → Harman** |
+| `[` / `]`   | Bu şarkının sözlerini 100 ms öne al / geciktir (kalıcı)                  |
+| `,`         | Ayarlar                                                                  |
 
 Söz satırına tıklamak şarkıyı o satıra sarar; alt çubuktaki ilerleme çubuğu da tıklanabilir. Fare 2 saniye hareketsiz kalınca kontroller gizlenir.
 
@@ -75,12 +75,12 @@ LRCLIB'deki sözlerin çoğu satır düzeyinde zamanlıdır. Kelime zamanları (
 
 ## Ayarlar ve dosyalar
 
-| Yol | İçerik |
-|---|---|
-| `~/.config/sahne/settings.json` | Ayarlar (panelden değişir; elle düzenlenebilir) |
-| `~/.config/sahne/offsets.json` | Şarkı başına söz kaydırmaları |
-| `~/.cache/sahne/lyrics/` | Söz önbelleği (bulunamayanlar 24 saat sonra yeniden aranır) |
-| `~/.cache/sahne/art/` | Kapak ve önceden bulanıklaştırılmış arka plan önbelleği |
+| Yol                             | İçerik                                                      |
+| ------------------------------- | ----------------------------------------------------------- |
+| `~/.config/sahne/settings.json` | Ayarlar (panelden değişir; elle düzenlenebilir)             |
+| `~/.config/sahne/offsets.json`  | Şarkı başına söz kaydırmaları                               |
+| `~/.cache/sahne/lyrics/`        | Söz önbelleği (bulunamayanlar 24 saat sonra yeniden aranır) |
+| `~/.cache/sahne/art/`           | Kapak ve önceden bulanıklaştırılmış arka plan önbelleği     |
 
 Önbelleği silmek güvenlidir.
 

@@ -35,10 +35,7 @@
       },
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "$CACHE/sahne/art/**",
-          "$CACHE/sahne/cache/art/**"
-        ]
+        "scope": ["$CACHE/sahne/art/**", "$CACHE/sahne/cache/art/**"]
       },
       "devCsp": {
         "default-src": "'self'",
@@ -56,10 +53,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "appimage",
-      "deb"
-    ],
+    "targets": ["appimage", "deb"],
     "category": "Music",
     "shortDescription": "Synchronized, animated lyrics and ambient colors for your desktop music player",
     "longDescription": "Sahne shows the lyrics of whatever is playing in Spotify (or any player that reports to the system media controls) synchronized and animated word by word, over a backdrop made from the album artwork's colors.",
@@ -93,10 +87,7 @@
       },
       "nsis": {
         "installMode": "currentUser",
-        "languages": [
-          "English",
-          "Turkish"
-        ],
+        "languages": ["English", "Turkish"],
         "displayLanguageSelector": false
       }
     },

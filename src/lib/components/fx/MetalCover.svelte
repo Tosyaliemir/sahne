@@ -21,7 +21,15 @@
   let generation = $state(0);
 
   const options = $derived(
-    reflectiveSettings({ tint, radius, grayscale: 0.55, roughness: 0.32, blurStrength: 8, glare: 0.55, tiltStrength: 10 }),
+    reflectiveSettings({
+      tint,
+      radius,
+      grayscale: 0.55,
+      roughness: 0.32,
+      blurStrength: 8,
+      glare: 0.55,
+      tiltStrength: 10,
+    }),
   );
   let fx: ReturnType<typeof createReflectivePlate> | null = null;
 

@@ -82,14 +82,21 @@
   {#if settings.current.backdrop_style === "fluid" && !flowUnsupported}
     <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
   {:else}
-    <Background mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style} />
+    <Background
+      mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style}
+    />
   {/if}
   <div class="shade" aria-hidden="true"></div>
 
   <div class="cover" data-tauri-drag-region>
     {#key palette.artSrc}
       {#if palette.artSrc && !artFailed}
-        <img src={palette.artSrc} alt="" onerror={() => (artFailed = true)} transition:fade={{ duration: fadeMs }} />
+        <img
+          src={palette.artSrc}
+          alt=""
+          onerror={() => (artFailed = true)}
+          transition:fade={{ duration: fadeMs }}
+        />
       {:else}
         <div class="placeholder">♪</div>
       {/if}
@@ -101,7 +108,8 @@
       <div class="meta" data-tauri-drag-region>
         <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
         {#key player.track.title}
-          <span class="title" data-tauri-drag-region in:fade={{ duration: fadeMs }}>{player.track.title}</span>
+          <span class="title" data-tauri-drag-region in:fade={{ duration: fadeMs }}>{player.track.title}</span
+          >
         {/key}
         <span class="artist" data-tauri-drag-region>{player.track.artist}</span>
         {#if player.track.album}
@@ -113,10 +121,18 @@
         <span class="time">{formatTime(player.positionMs)}</span>
         <div class="rail"><div class="fill" bind:this={progressEl}></div></div>
         <div class="buttons">
-          <button onclick={player.previous} aria-label={t("controls.previous")} title={t("controls.previous")}>
+          <button
+            onclick={player.previous}
+            aria-label={t("controls.previous")}
+            title={t("controls.previous")}
+          >
             <svg viewBox="0 0 24 24"><path d="M7 6h2v12H7zM10.5 12 19 6v12z" /></svg>
           </button>
-          <button class="main" onclick={player.playPause} aria-label={playing ? t("controls.pause") : t("controls.play")}>
+          <button
+            class="main"
+            onclick={player.playPause}
+            aria-label={playing ? t("controls.pause") : t("controls.play")}
+          >
             {#if playing}
               <svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
             {:else}
@@ -135,7 +151,11 @@
   </div>
 
   <button class="expand" onclick={expand} title={t("mini.expand")} aria-label={t("mini.expand")}>
-    <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-5.3 5.3-1.4-1.4L17.6 5H14zM3 14h2v3.6l5.3-5.3 1.4 1.4L6.4 19H10v2H3z" /></svg>
+    <svg viewBox="0 0 24 24"
+      ><path
+        d="M14 3h7v7h-2V6.4l-5.3 5.3-1.4-1.4L17.6 5H14zM3 14h2v3.6l5.3-5.3 1.4 1.4L6.4 19H10v2H3z"
+      /></svg
+    >
   </button>
 </div>
 
@@ -171,7 +191,11 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--c-dark-bg) 15%, transparent), color-mix(in srgb, var(--c-dark-bg) 55%, transparent));
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--c-dark-bg) 15%, transparent),
+      color-mix(in srgb, var(--c-dark-bg) 55%, transparent)
+    );
   }
 
   .cover {
@@ -316,7 +340,10 @@
     color: var(--text);
     opacity: 0.8;
     cursor: pointer;
-    transition: opacity 150ms, background-color 150ms, transform 150ms;
+    transition:
+      opacity 150ms,
+      background-color 150ms,
+      transform 150ms;
   }
   .buttons button:hover,
   .expand:hover {
@@ -364,12 +391,21 @@
   }
 
   @keyframes breathe {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.025); }
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.025);
+    }
   }
   @keyframes eq {
-    from { transform: scaleY(0.25); }
-    to { transform: scaleY(1); }
+    from {
+      transform: scaleY(0.25);
+    }
+    to {
+      transform: scaleY(1);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .playing .cover,

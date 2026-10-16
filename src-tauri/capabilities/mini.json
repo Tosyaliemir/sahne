@@ -3,9 +3,5 @@
   "identifier": "mini",
   "description": "Mini player window. Listens to backend events and can be dragged by its background (data-tauri-drag-region).",
   "windows": ["mini"],
-  "permissions": [
-    "core:event:allow-listen",
-    "core:event:allow-unlisten",
-    "core:window:allow-start-dragging"
-  ]
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-start-dragging"]
 }

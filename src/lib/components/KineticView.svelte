@@ -99,7 +99,9 @@
 
   const word = $derived(current >= 0 ? flat[current] : null);
   const fontSize = $derived(
-    word ? `min(calc(clamp(4rem, 13cqw, 13rem) * var(--lyrics-scale, 1)), calc(170cqw / ${Math.max(4, [...word.text].length)}))` : "",
+    word
+      ? `min(calc(clamp(4rem, 13cqw, 13rem) * var(--lyrics-scale, 1)), calc(170cqw / ${Math.max(4, [...word.text].length)}))`
+      : "",
   );
 </script>
 

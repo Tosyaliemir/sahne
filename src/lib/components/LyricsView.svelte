@@ -225,9 +225,15 @@
   }
 
   @keyframes pop {
-    0% { transform: translateY(0); }
-    35% { transform: translateY(-4px); }
-    100% { transform: translateY(0); }
+    0% {
+      transform: translateY(0);
+    }
+    35% {
+      transform: translateY(-4px);
+    }
+    100% {
+      transform: translateY(0);
+    }
   }
 
   .dots-wrap {

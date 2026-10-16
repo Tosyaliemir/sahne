@@ -3,7 +3,11 @@
   import CoverArt from "./CoverArt.svelte";
 
   /** Big artwork + track info, shown when there are no lyrics to display. */
-  let { track, message, action }: {
+  let {
+    track,
+    message,
+    action,
+  }: {
     track: TrackInfo;
     message: string;
     action?: { label: string; run: () => void };

@@ -16,7 +16,9 @@ function report(level: "error" | "warn", message: string) {
   limiter.log(level, message);
 }
 window.addEventListener("error", (e) => report("error", `${e.message} at ${e.filename}:${e.lineno}`));
-window.addEventListener("unhandledrejection", (e) => report("error", `unhandled rejection: ${String(e.reason)}`));
+window.addEventListener("unhandledrejection", (e) =>
+  report("error", `unhandled rejection: ${String(e.reason)}`),
+);
 // The CSP (tauri.conf.json) should never fire; if it does, it's a bug to see in the log.
 document.addEventListener("securitypolicyviolation", (e) =>
   report("error", `CSP blocked ${e.blockedURI || "inline"} (${e.violatedDirective})`),

@@ -178,7 +178,9 @@
       return;
     }
     const dbg = gl.getExtension("WEBGL_debug_renderer_info");
-    const renderer = String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    const renderer = String(
+      dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+    );
     report(`flow backdrop: WebGL ${gl.getParameter(gl.VERSION)} on ${renderer}`);
     if (SOFTWARE_RENDERER.test(renderer) && settings.current.performance_mode !== "quality") {
       report("flow backdrop: software rendering, using the blurred backdrop instead");
@@ -215,7 +217,17 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([20, 20, 24]));
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGB,
+        1,
+        1,
+        0,
+        gl.RGB,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array([20, 20, 24]),
+      );
       return tex;
     };
     const init = (): boolean => {
@@ -225,7 +237,8 @@
         gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
         gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
         gl.linkProgram(prog);
-        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? "link");
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+          throw new Error(gl.getProgramInfoLog(prog) ?? "link");
         gl.useProgram(prog);
         const buf = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);

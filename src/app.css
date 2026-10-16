@@ -7,8 +7,9 @@
   src: url("./assets/fonts/Manrope-latin.woff2") format("woff2");
   font-weight: 200 800;
   font-display: block;
-  unicode-range: U+0000-00FF, U+0100-017F, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
-    U+2000-206F, U+20A0-20CF, U+2122, U+2190-2199, U+2212, U+FEFF;
+  unicode-range:
+    U+0000-00FF, U+0100-017F, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F,
+    U+20A0-20CF, U+2122, U+2190-2199, U+2212, U+FEFF;
 }
 @font-face {
   font-family: "Manrope";
@@ -20,17 +21,61 @@
 
 /* Palette roles, set from the album art. Registering them as <color> lets
    them transition smoothly when the track changes. */
-@property --c-dominant { syntax: "<color>"; inherits: true; initial-value: #5c5c66; }
-@property --c-vibrant { syntax: "<color>"; inherits: true; initial-value: #8a8a96; }
-@property --c-muted { syntax: "<color>"; inherits: true; initial-value: #6b6b75; }
-@property --c-dark-bg { syntax: "<color>"; inherits: true; initial-value: #121216; }
-@property --c-light-text { syntax: "<color>"; inherits: true; initial-value: #f4f2ee; }
-@property --c-accent { syntax: "<color>"; inherits: true; initial-value: #b8b8c4; }
-@property --c-amb-0 { syntax: "<color>"; inherits: true; initial-value: #5c5c66; }
-@property --c-amb-1 { syntax: "<color>"; inherits: true; initial-value: #6f6f7a; }
-@property --c-amb-2 { syntax: "<color>"; inherits: true; initial-value: #4d4d57; }
-@property --c-amb-3 { syntax: "<color>"; inherits: true; initial-value: #7d7d88; }
-@property --c-amb-4 { syntax: "<color>"; inherits: true; initial-value: #585862; }
+@property --c-dominant {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5c5c66;
+}
+@property --c-vibrant {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #8a8a96;
+}
+@property --c-muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6b6b75;
+}
+@property --c-dark-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #121216;
+}
+@property --c-light-text {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f4f2ee;
+}
+@property --c-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #b8b8c4;
+}
+@property --c-amb-0 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5c5c66;
+}
+@property --c-amb-1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6f6f7a;
+}
+@property --c-amb-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #4d4d57;
+}
+@property --c-amb-3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #7d7d88;
+}
+@property --c-amb-4 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #585862;
+}
 
 :root {
   transition:

@@ -721,9 +721,7 @@ export function createElectricBorder(
 
     const settled = Math.abs((s.active ? 1 : 0) - power) < 0.002 && (!s.active || reveal >= 1);
     // Paused and settled: stop drawing; the canvas keeps the last frame.
-    busy = s.paused
-      ? !settled || sparks.length > 0
-      : power > 0.002 || s.active || sparks.length > 0;
+    busy = s.paused ? !settled || sparks.length > 0 : power > 0.002 || s.active || sparks.length > 0;
   };
 
   const client: FrameClient = {

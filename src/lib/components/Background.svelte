@@ -91,11 +91,33 @@
     will-change: transform;
   }
   /* Spread around the screen; different durations so the pattern rarely repeats. */
-  .b0 { top: -24vmax; left: -18vmax; animation: float-a 37s ease-in-out infinite alternate; }
-  .b1 { top: -20vmax; right: -22vmax; animation: float-b 43s ease-in-out infinite alternate; }
-  .b2 { bottom: -28vmax; left: 8vmax; animation: float-c 53s ease-in-out infinite alternate; }
-  .b3 { bottom: -26vmax; right: -14vmax; animation: float-a 59s ease-in-out infinite alternate-reverse; }
-  .b4 { top: 18vh; left: 28vw; width: 46vmax; height: 46vmax; animation: float-b 67s ease-in-out infinite alternate-reverse; }
+  .b0 {
+    top: -24vmax;
+    left: -18vmax;
+    animation: float-a 37s ease-in-out infinite alternate;
+  }
+  .b1 {
+    top: -20vmax;
+    right: -22vmax;
+    animation: float-b 43s ease-in-out infinite alternate;
+  }
+  .b2 {
+    bottom: -28vmax;
+    left: 8vmax;
+    animation: float-c 53s ease-in-out infinite alternate;
+  }
+  .b3 {
+    bottom: -26vmax;
+    right: -14vmax;
+    animation: float-a 59s ease-in-out infinite alternate-reverse;
+  }
+  .b4 {
+    top: 18vh;
+    left: 28vw;
+    width: 46vmax;
+    height: 46vmax;
+    animation: float-b 67s ease-in-out infinite alternate-reverse;
+  }
   .dim {
     position: absolute;
     inset: 0;
@@ -105,28 +127,52 @@
   /* A sharp image under the lyrics needs much more help to stay readable. */
   .cover .dim {
     opacity: calc(0.45 + var(--backdrop-dim) * 0.6);
-    background: radial-gradient(ellipse at center, var(--c-dark-bg) 0%, color-mix(in srgb, var(--c-dark-bg) 70%, transparent) 70%);
+    background: radial-gradient(
+      ellipse at center,
+      var(--c-dark-bg) 0%,
+      color-mix(in srgb, var(--c-dark-bg) 70%, transparent) 70%
+    );
   }
 
   @keyframes drift {
-    from { transform: scale(1) translate3d(0, 0, 0) rotate(0deg); }
-    to { transform: scale(1.1) translate3d(-3%, 2%, 0) rotate(3deg); }
+    from {
+      transform: scale(1) translate3d(0, 0, 0) rotate(0deg);
+    }
+    to {
+      transform: scale(1.1) translate3d(-3%, 2%, 0) rotate(3deg);
+    }
   }
   @keyframes kenburns {
-    from { transform: scale(1.02) translate3d(0, 0, 0); }
-    to { transform: scale(1.14) translate3d(-2%, -1.5%, 0); }
+    from {
+      transform: scale(1.02) translate3d(0, 0, 0);
+    }
+    to {
+      transform: scale(1.14) translate3d(-2%, -1.5%, 0);
+    }
   }
   @keyframes float-a {
-    from { transform: translate3d(0, 0, 0) scale(1); }
-    to { transform: translate3d(22vw, 18vh, 0) scale(1.2); }
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(22vw, 18vh, 0) scale(1.2);
+    }
   }
   @keyframes float-b {
-    from { transform: translate3d(0, 0, 0) scale(1.1); }
-    to { transform: translate3d(-24vw, 16vh, 0) scale(0.9); }
+    from {
+      transform: translate3d(0, 0, 0) scale(1.1);
+    }
+    to {
+      transform: translate3d(-24vw, 16vh, 0) scale(0.9);
+    }
   }
   @keyframes float-c {
-    from { transform: translate3d(0, 0, 0) scale(0.95); }
-    to { transform: translate3d(18vw, -20vh, 0) scale(1.18); }
+    from {
+      transform: translate3d(0, 0, 0) scale(0.95);
+    }
+    to {
+      transform: translate3d(18vw, -20vh, 0) scale(1.18);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

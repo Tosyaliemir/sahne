@@ -26,7 +26,6 @@
   import SettingsPanel from "./lib/components/SettingsPanel.svelte";
   import CoverArt from "./lib/components/CoverArt.svelte";
 
-
   /** WebGL missing or failing: fall back to the CSS backdrop. */
   let flowUnsupported = $state(false);
 
@@ -39,7 +38,10 @@
     life.add(player.start());
     life.add(lyrics.start());
     life.add(palette.start());
-    appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
+    appWindow
+      .isFullscreen()
+      .then((f) => (fullscreen = f))
+      .catch(() => {});
     life.add(
       listen<boolean>("screensaver", (e) => {
         ui.screensaver = e.payload;
@@ -47,7 +49,10 @@
           ui.settingsOpen = false;
           ui.controlsVisible = false;
         }
-        appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
+        appWindow
+          .isFullscreen()
+          .then((f) => (fullscreen = f))
+          .catch(() => {});
       }),
     );
     // Hidden or minimised: draw nothing. WebKitGTK doesn't always report
@@ -168,7 +173,9 @@
         if (player.volume !== null) {
           e.preventDefault();
           player.setVolume(player.volume + (e.key === "ArrowUp" ? 0.05 : -0.05));
-          showToast(t("toast.volume", { value: String(Math.round(Math.min(1, Math.max(0, player.volume)) * 100)) }));
+          showToast(
+            t("toast.volume", { value: String(Math.round(Math.min(1, Math.max(0, player.volume)) * 100)) }),
+          );
         }
         break;
       case "[":
@@ -221,7 +228,9 @@
 {#if settings.current.backdrop_style === "fluid" && !flowUnsupported}
   <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
 {:else}
-  <Background mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style} />
+  <Background
+    mode={settings.current.backdrop_style === "fluid" ? "blurred" : settings.current.backdrop_style}
+  />
 {/if}
 {#if settings.current.edge_glow && player.track}
   <EdgeGlow />
@@ -246,7 +255,6 @@
       </aside>
       <!-- In the split view a click anywhere on the lyrics enlarges them
            instead of seeking; once enlarged, clicking a line seeks. -->
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <section
         class="pane"
         class:switching={ui.switching}
@@ -258,21 +266,21 @@
         }}
       >
         {#if data.state === "synced"}
-    {#key data.track_id}
-      {#if style === "kinetic"}
-        <KineticView {data} />
-      {:else if style === "blend"}
-        <BlendView {data} />
-      {:else if style === "wall"}
-        <WallView {data} />
-      {:else}
-        <LyricsView {data} {style} />
-      {/if}
-    {/key}
+          {#key data.track_id}
+            {#if style === "kinetic"}
+              <KineticView {data} />
+            {:else if style === "blend"}
+              <BlendView {data} />
+            {:else if style === "wall"}
+              <WallView {data} />
+            {:else}
+              <LyricsView {data} {style} />
+            {/if}
+          {/key}
         {:else}
-    {#key data.track_id}
-      <PlainLyrics text={data.plain ?? ""} />
-    {/key}
+          {#key data.track_id}
+            <PlainLyrics text={data.plain ?? ""} />
+          {/key}
         {/if}
       </section>
     </div>
@@ -452,6 +460,8 @@
     background: color-mix(in srgb, var(--c-dark-bg) 86%, transparent);
   }
   @keyframes fade-in {
-    from { opacity: 0; }
+    from {
+      opacity: 0;
+    }
   }
 </style>
