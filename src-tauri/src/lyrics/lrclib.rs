@@ -80,6 +80,9 @@ pub enum FetchError {
     Http(StatusCode),
     #[error("unexpected LRCLIB response: {0}")]
     Decode(reqwest::Error),
+    /// Any other transport failure (TLS, protocol, redirect...).
+    #[error("LRCLIB request failed: {0}")]
+    Request(reqwest::Error),
     #[error("LRCLIB response is not valid JSON: {0}")]
     Json(#[from] serde_json::Error),
     #[error("LRCLIB response exceeds {MAX_BODY_BYTES} bytes")]
@@ -179,7 +182,7 @@ impl Client {
                 Err(e) if e.is_connect() => return Err(FetchError::Offline(e)),
                 // Reachable but slow (LRCLIB's `get` can take seconds): retry, don't claim offline.
                 Err(e) if e.is_timeout() => return Err(FetchError::Busy),
-                Err(e) => return Err(FetchError::Decode(e)),
+                Err(e) => return Err(FetchError::Request(e)),
             };
             match resp.status() {
                 s if s.is_success() => return Ok(Some(resp)),
