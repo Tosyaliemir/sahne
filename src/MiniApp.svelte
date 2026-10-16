@@ -8,6 +8,7 @@
   import { ui } from "./lib/stores/ui.svelte";
   import { t } from "./lib/i18n/index.svelte";
   import { formatTime } from "./lib/format";
+  import { Lifecycle } from "./lib/lifecycle";
   import VolumeControl from "./lib/components/VolumeControl.svelte";
   import Background from "./lib/components/Background.svelte";
   import FlowBackground from "./lib/components/FlowBackground.svelte";
@@ -18,10 +19,10 @@
   const playing = $derived(player.status === "playing");
 
   onMount(() => {
-    const stops: (() => void)[] = [];
-    settings.start().then((s) => stops.push(s));
-    player.start().then((s) => stops.push(s));
-    palette.start().then((s) => stops.push(s));
+    const life = new Lifecycle();
+    life.add(settings.start());
+    life.add(player.start());
+    life.add(palette.start());
 
     let raf = requestAnimationFrame(function loop(now) {
       const pos = player.positionNow(now);
@@ -32,7 +33,7 @@
 
     return () => {
       cancelAnimationFrame(raf);
-      stops.forEach((s) => s());
+      life.dispose();
     };
   });
 

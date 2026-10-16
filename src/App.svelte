@@ -10,6 +10,7 @@
   import { settings } from "./lib/stores/settings.svelte";
   import { t } from "./lib/i18n/index.svelte";
   import { startFrameStats } from "./lib/perf";
+  import { Lifecycle } from "./lib/lifecycle";
   import Background from "./lib/components/Background.svelte";
   import FlowBackground from "./lib/components/FlowBackground.svelte";
   import StatusScreen from "./lib/components/StatusScreen.svelte";
@@ -32,24 +33,26 @@
   const appWindow = getCurrentWindow();
 
   onMount(() => {
-    const stops: (() => void)[] = [];
-    settings.start().then((s) => stops.push(s));
-    player.start().then((s) => stops.push(s));
-    lyrics.start().then((s) => stops.push(s));
-    palette.start().then((s) => stops.push(s));
+    const life = new Lifecycle();
+    life.add(settings.start());
+    life.add(player.start());
+    life.add(lyrics.start());
+    life.add(palette.start());
     appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
-    listen<boolean>("screensaver", (e) => {
-      ui.screensaver = e.payload;
-      if (e.payload) {
-        ui.settingsOpen = false;
-        ui.controlsVisible = false;
-      }
-      appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
-    }).then((u) => stops.push(u));
+    life.add(
+      listen<boolean>("screensaver", (e) => {
+        ui.screensaver = e.payload;
+        if (e.payload) {
+          ui.settingsOpen = false;
+          ui.controlsVisible = false;
+        }
+        appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
+      }),
+    );
     bumpControls();
-    if (import.meta.env.DEV) stops.push(startFrameStats("frames"));
+    if (import.meta.env.DEV) life.add(startFrameStats("frames"));
     return () => {
-      stops.forEach((s) => s());
+      life.dispose();
       clearTimeout(hideTimer);
     };
   });
@@ -258,8 +261,13 @@
 
   {#if player.track && player.status !== "playing"}
     <div class="paused" role="status">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
-      {t("status.paused")}
+      {#if player.status === "stopped"}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>
+        {t("status.stopped")}
+      {:else}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+        {t("status.paused")}
+      {/if}
     </div>
   {/if}
 
