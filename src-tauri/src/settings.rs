@@ -293,7 +293,7 @@ impl SettingsStore {
     }
 
     fn lock(&self) -> MutexGuard<'_, Settings> {
-        self.current.lock().unwrap_or_else(|e| e.into_inner())
+        crate::sync::lock(&self.current)
     }
 }
 

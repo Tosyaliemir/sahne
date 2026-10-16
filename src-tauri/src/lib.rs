@@ -149,8 +149,8 @@ async fn list_players() -> AppResult<Vec<String>> {
 }
 
 #[tauri::command]
-fn set_mini_mode(app: AppHandle, settings: SettingsState<'_>, enabled: bool) -> Result<(), String> {
-    windows::set_mini_mode(&app, &settings, enabled).map_err(|e| e.to_string())
+fn set_mini_mode(app: AppHandle, settings: SettingsState<'_>, enabled: bool) -> AppResult<()> {
+    Ok(windows::set_mini_mode(&app, &settings, enabled)?)
 }
 
 /// `SAHNE_PLAYER` (handy for the mock player) overrides the saved preference.

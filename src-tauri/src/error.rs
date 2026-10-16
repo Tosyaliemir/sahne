@@ -18,6 +18,8 @@ pub enum AppError {
     #[cfg(windows)]
     #[error("{0}")]
     Unsupported(&'static str),
+    #[error("window error: {0}")]
+    Window(#[from] tauri::Error),
 }
 
 // Tauri commands send errors to the frontend; a message string is all it needs.

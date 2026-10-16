@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { registerAt, registerIn } from "../registry";
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
@@ -26,25 +27,6 @@
   const lineEls: (HTMLElement | undefined)[] = [];
   const wordEls: HTMLElement[][] = [];
   const dotsEls: (HTMLElement | undefined)[] = [];
-
-  /** Attachment that stores `el` in `list[i]` while it is mounted. */
-  function register<T extends HTMLElement>(list: (T | undefined)[], i: number) {
-    return (el: T) => {
-      list[i] = el;
-      return () => {
-        if (list[i] === el) list[i] = undefined;
-      };
-    };
-  }
-
-  function registerWord(i: number, j: number) {
-    return (el: HTMLElement) => {
-      (wordEls[i] ??= [])[j] = el;
-      return () => {
-        if (wordEls[i]?.[j] === el) delete wordEls[i][j];
-      };
-    };
-  }
 
   /** Lines further than this from the active one are not laid out at all. */
   const WINDOW = 3;
@@ -149,19 +131,19 @@
         class:near={Math.abs(d) === 1}
         class:past={d < 0}
         class:far={Math.abs(d) > WINDOW}
-        {@attach register(lineEls, i)}
+        {@attach registerAt(lineEls, i)}
         style:transform={transforms[i]}
         role="button"
         tabindex="-1"
         onclick={() => seekTo(line)}
       >
         {#if isBreak(i)}
-          <div class="dots-wrap" {@attach register(dotsEls, i)}>
+          <div class="dots-wrap" {@attach registerAt(dotsEls, i)}>
             <Interlude />
           </div>
         {:else}
           {#each words[i] as w, j (j)}
-            <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
+            <FillWord text={w.text} attach={registerIn(wordEls, i, j)} />{" "}
           {/each}
         {/if}
       </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { registerAt, registerIn } from "../registry";
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
@@ -56,31 +57,6 @@
   const wordEls: HTMLElement[][] = [];
   const filler = new LineFiller();
   let transforms: string[] = $state([]);
-
-  function register(i: number) {
-    return (el: HTMLElement) => {
-      lineEls[i] = el;
-      return () => {
-        if (lineEls[i] === el) lineEls[i] = undefined;
-      };
-    };
-  }
-  function registerDots(i: number) {
-    return (el: HTMLElement) => {
-      dotsEls[i] = el;
-      return () => {
-        if (dotsEls[i] === el) dotsEls[i] = undefined;
-      };
-    };
-  }
-  function registerWord(i: number, j: number) {
-    return (el: HTMLElement) => {
-      (wordEls[i] ??= [])[j] = el;
-      return () => {
-        if (wordEls[i]?.[j] === el) delete wordEls[i][j];
-      };
-    };
-  }
 
   const visible = (i: number) => i >= active - BEHIND && i <= active + AHEAD;
 
@@ -149,18 +125,18 @@
           class:past={d < 0}
           style:transform={transforms[i] ?? ENTER_TRANSFORM}
           style:--age={Math.abs(d)}
-          {@attach register(i)}
+          {@attach registerAt(lineEls, i)}
           role="button"
           tabindex="-1"
           onclick={() => player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs))}
         >
           {#if isBreakLine(line)}
-            <div class="dots-wrap" {@attach registerDots(i)}>
+            <div class="dots-wrap" {@attach registerAt(dotsEls, i)}>
               <Interlude />
             </div>
           {:else}
             {#each words[i] as w, j (j)}
-              <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
+              <FillWord text={w.text} attach={registerIn(wordEls, i, j)} />{" "}
             {/each}
           {/if}
         </div>
