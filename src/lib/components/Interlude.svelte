@@ -14,7 +14,7 @@
   .interlude {
     display: inline-flex;
     gap: 0.45em;
-    font-size: clamp(1.4rem, 2.6vw, 2.6rem);
+    font-size: clamp(1.4rem, 2.6cqw, 2.6rem);
     animation: breathe 2.6s ease-in-out infinite;
   }
   span {

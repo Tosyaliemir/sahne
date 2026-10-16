@@ -3,9 +3,10 @@
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
   import { lyrics } from "../stores/lyrics.svelte";
-  import { activeLineIndex, lyricTime, wordTimings } from "../timing";
+  import { activeLineIndex, INTERLUDE_MIN_MS, lyricTime, wordTimings } from "../timing";
   import { LineFiller } from "../wordFill";
   import FillWord from "./FillWord.svelte";
+  import Interlude from "./Interlude.svelte";
 
   /**
    * "Duvar": the last few lines stacked into a wall of big type that hangs
@@ -26,7 +27,20 @@
    */
   const ENTER_TRANSFORM = "translate3d(0, 45cqh, 0)";
 
-  const lines: Line[] = $derived(data.lines.filter((l) => l.text.trim() !== ""));
+  /** A long empty line (or a long intro) is an instrumental break. */
+  const isBreakLine = (l: Line) => l.text.trim() === "" && l.end_ms - l.start_ms >= INTERLUDE_MIN_MS;
+  /**
+   * Sung lines plus instrumental breaks, which show the same breathing dots
+   * as the other styles. Short empty lines would only add gaps to the wall.
+   */
+  const lines: Line[] = $derived.by(() => {
+    const first = data.lines[0];
+    const all =
+      first && first.start_ms >= INTERLUDE_MIN_MS
+        ? [{ start_ms: 0, end_ms: first.start_ms, text: "", words: null }, ...data.lines]
+        : data.lines;
+    return all.filter((l) => l.text.trim() !== "" || isBreakLine(l));
+  });
   const words: Word[][] = $derived(lines.map(wordTimings));
   /**
    * Uppercasing depends on language: Turkish maps i → İ, English i → I. The
@@ -37,6 +51,7 @@
 
   let active = $state(-1);
   const lineEls: (HTMLElement | undefined)[] = [];
+  const dotsEls: (HTMLElement | undefined)[] = [];
   const wordEls: HTMLElement[][] = [];
   const filler = new LineFiller();
   let transforms: string[] = $state([]);
@@ -46,6 +61,14 @@
       lineEls[i] = el;
       return () => {
         if (lineEls[i] === el) lineEls[i] = undefined;
+      };
+    };
+  }
+  function registerDots(i: number) {
+    return (el: HTMLElement) => {
+      dotsEls[i] = el;
+      return () => {
+        if (dotsEls[i] === el) dotsEls[i] = undefined;
       };
     };
   }
@@ -97,6 +120,12 @@
         active = idx;
       }
       if (idx >= 0) filler.update(wordEls[idx], words[idx] ?? [], t);
+      const dots = idx >= 0 ? dotsEls[idx] : undefined;
+      if (dots) {
+        const l = lines[idx];
+        const progress = Math.min(1, Math.max(0, (t - l.start_ms) / (l.end_ms - l.start_ms)));
+        dots.style.setProperty("--progress", progress.toFixed(3));
+      }
       raf = requestAnimationFrame(loop);
     });
     const onResize = () => layout();
@@ -125,9 +154,15 @@
           tabindex="-1"
           onclick={() => player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs))}
         >
-          {#each words[i] as w, j (j)}
-            <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
-          {/each}
+          {#if isBreakLine(line)}
+            <div class="dots-wrap" {@attach registerDots(i)}>
+              <Interlude />
+            </div>
+          {:else}
+            {#each words[i] as w, j (j)}
+              <FillWord text={w.text} attach={registerWord(i, j)} />{" "}
+            {/each}
+          {/if}
         </div>
       {/if}
     {/each}
@@ -172,6 +207,10 @@
   }
   .line.past {
     color: var(--fill);
+  }
+  .dots-wrap {
+    display: flex;
+    padding: 0.15em 0;
   }
   .line.active {
     opacity: 1;
