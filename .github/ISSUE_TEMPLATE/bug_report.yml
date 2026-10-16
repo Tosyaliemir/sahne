@@ -1,0 +1,67 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please search existing issues first.
+        Security problems go through [private reporting](https://github.com/Tosyaliemir/sahne/security/advisories/new), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start Sahne with Spotify playing
+        2. Switch to the Wall style
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Sahne version
+      description: Settings → About shows it.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+  - type: input
+    id: desktop
+    attributes:
+      label: "Linux: distribution, desktop and session"
+      placeholder: "Arch, KDE Plasma 6, Wayland"
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card and driver
+      placeholder: "NVIDIA RTX 4070, driver 580"
+  - type: input
+    id: player
+    attributes:
+      label: Music player and how it was installed
+      placeholder: "Spotify 1.2 (deb)"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Run Sahne from a terminal with `RUST_LOG=sahne_lib=debug` set and paste the relevant part.
+        Remove anything you consider private.
+      render: text

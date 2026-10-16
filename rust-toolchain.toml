@@ -1,0 +1,5 @@
+# Pinned so local builds, CI and releases use the same compiler. Bump it
+# deliberately (Dependabot does not); clippy lints change between releases.
+[toolchain]
+channel = "1.99.0"
+components = ["clippy", "rustfmt"]
