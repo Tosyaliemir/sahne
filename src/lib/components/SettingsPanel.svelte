@@ -14,11 +14,32 @@
   const s = $derived(settings.current);
   let players = $state<string[]>([]);
 
+  /** Bytes used by the lyrics and artwork caches; null until known. */
+  let cacheBytes = $state<number | null>(null);
+  let clearing = $state(false);
+
   onMount(() => {
     invoke<string[]>("list_players")
       .then((p) => (players = p))
       .catch((err) => console.warn("list_players failed", err));
+    invoke<number>("cache_size")
+      .then((n) => (cacheBytes = n))
+      .catch((err) => console.warn("cache_size failed", err));
   });
+
+  async function clearCache() {
+    clearing = true;
+    try {
+      await invoke<number>("clear_cache");
+      cacheBytes = await invoke<number>("cache_size");
+    } catch (err) {
+      console.warn("clear_cache failed", err);
+    } finally {
+      clearing = false;
+    }
+  }
+
+  const megabytes = (n: number) => (n / (1024 * 1024)).toFixed(n < 10 * 1024 * 1024 ? 1 : 0);
 
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     settings.update({ [key]: value } as Partial<Settings>);
@@ -187,6 +208,15 @@
         <button class="small" onclick={() => set("mini_position", null)}>{t("settings.reset")}</button>
       </div>
     {/if}
+    <div class="row">
+      <span>
+        {t("settings.cache")}
+        {#if cacheBytes !== null}<em>{t("settings.cacheSize", { mb: megabytes(cacheBytes) })}</em>{/if}
+      </span>
+      <button class="small" disabled={clearing || cacheBytes === 0} onclick={clearCache}>
+        {t("settings.clearCache")}
+      </button>
+    </div>
   </section>
 </aside>
 

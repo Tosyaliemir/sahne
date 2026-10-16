@@ -82,5 +82,9 @@
   "settings.coverEffect": "Kapak efekti",
   "coverEffect.yok": "Yok",
   "coverEffect.metal": "Metal plaka",
-  "coverEffect.elektrik": "Elektrik kenarlık"
+  "coverEffect.elektrik": "Elektrik kenarlık",
+  "settings.cache": "Önbellek (sözler ve kapaklar)",
+  "settings.cacheSize": "{mb} MB",
+  "settings.clearCache": "Temizle",
+  "status.stopped": "Durduruldu"
 }

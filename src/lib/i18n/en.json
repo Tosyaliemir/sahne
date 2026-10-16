@@ -82,5 +82,9 @@
   "settings.coverEffect": "Cover effect",
   "coverEffect.yok": "None",
   "coverEffect.metal": "Metal plate",
-  "coverEffect.elektrik": "Electric border"
+  "coverEffect.elektrik": "Electric border",
+  "settings.cache": "Cache (lyrics and artwork)",
+  "settings.cacheSize": "{mb} MB",
+  "settings.clearCache": "Clear",
+  "status.stopped": "Stopped"
 }
