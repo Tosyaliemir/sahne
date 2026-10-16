@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: LicenseRef-MIT-Commons-Clause
+// Derived from "Electric Border" by David Haz, React Bits (https://reactbits.dev),
+// MIT License with Commons Clause v1.0. Modified for Sahne. See THIRD_PARTY_NOTICES.md.
+
 // Electric border: crackling light running along a rounded rectangle, drawn
 // in a canvas that overhangs the element by MARGIN px on every side.
 // Framework-free; see ElectricBorder.svelte for the wrapper.

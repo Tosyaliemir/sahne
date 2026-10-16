@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: LicenseRef-MIT-Commons-Clause
+// Derived from "Reflective Card" by David Haz, React Bits (https://reactbits.dev),
+// MIT License with Commons Clause v1.0. Modified for Sahne. See THIRD_PARTY_NOTICES.md.
+
 // Reflective metal plate: a brushed, beveled card that mirrors a blurred
 // image and tilts toward the pointer. It reflects a single <img> only.
 // Framework-free; see MetalCover.svelte for the wrapper. The tilt and intro
