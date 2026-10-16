@@ -98,7 +98,7 @@ if (q.get("static") === "1") {
 clearMocks();
 mockWindows(view);
 mockIPC(
-  (cmd) => {
+  (cmd, args) => {
     switch (cmd) {
       case "get_state":
         return snapshot;
@@ -107,8 +107,14 @@ mockIPC(
       case "get_palette":
         return palette;
       case "get_settings":
-      case "save_settings":
         return settings;
+      case "update_settings":
+        Object.assign(settings, (args as { patch?: Partial<Settings> } | undefined)?.patch ?? {});
+        return settings;
+      case "cache_size":
+        return 19 * 1024 * 1024;
+      case "clear_cache":
+        return 0;
       case "list_players":
         return ["sahnemock", "spotify", "vlc"];
       default:

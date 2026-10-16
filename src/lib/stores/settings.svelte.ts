@@ -29,9 +29,14 @@ export const DEFAULT_SETTINGS: Settings = {
 class SettingsStore {
   current = $state.raw<Settings>(DEFAULT_SETTINGS);
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Local edits not yet sent; only these fields go to the backend. */
+  private pending: Partial<Settings> = {};
 
   async start(): Promise<() => void> {
-    const unlisten = await listen<Settings>("settings-changed", (e) => this.apply(e.payload));
+    // Unsent local edits win over an incoming broadcast until they are sent.
+    const unlisten = await listen<Settings>("settings-changed", (e) =>
+      this.apply({ ...e.payload, ...this.pending }),
+    );
     try {
       this.apply(await invoke<Settings>("get_settings"));
     } catch (err) {
@@ -41,13 +46,21 @@ class SettingsStore {
     return unlisten;
   }
 
-  /** Changes some settings locally right away and saves them shortly after. */
+  /**
+   * Changes some settings locally right away and sends just those fields
+   * shortly after. The backend merges them onto its current state, so a
+   * stale copy here can't undo changes made by the other window or by the
+   * backend itself (e.g. the mini window's position).
+   */
   update(patch: Partial<Settings>): void {
+    this.pending = { ...this.pending, ...patch };
     this.apply({ ...this.current, ...patch });
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => {
-      invoke<Settings>("save_settings", { newSettings: this.current }).catch((err) =>
-        console.warn("save_settings failed", err),
+      const send = this.pending;
+      this.pending = {};
+      invoke<Settings>("update_settings", { patch: send }).catch((err) =>
+        console.warn("update_settings failed", err),
       );
     }, SAVE_DELAY_MS);
   }

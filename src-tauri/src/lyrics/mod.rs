@@ -8,7 +8,7 @@ mod normalize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -17,6 +17,7 @@ use tokio::sync::watch;
 
 use crate::events::{self, LyricsLoaded, LyricsState, TrackInfo};
 use crate::paths::{self, Paths};
+use crate::sync::{lock, Inflight};
 use lrclib::{FetchError, Record};
 
 /// Negative results are retried after a day; positive ones are kept forever.
@@ -29,6 +30,8 @@ const RATE_LIMIT_RETRY_MAX: Duration = Duration::from_secs(60);
 
 /// Bumped whenever lookup rules change so stale (possibly junk) entries are refetched.
 const CACHE_VERSION: u32 = 2;
+/// Offsets are saved this long after the last `[`/`]` press.
+const OFFSET_SAVE_DELAY: Duration = Duration::from_millis(500);
 
 /// What we cache per track: the raw LRCLIB fields, or `None` for "not found".
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,13 +64,16 @@ pub struct LyricsService {
     cache_dir: PathBuf,
     offsets_path: PathBuf,
     offsets: Mutex<HashMap<String, i64>>,
+    /// Bumped on every offset change; a pending save only writes if it is
+    /// still the latest (holding `]` causes one write, not one per press).
+    offsets_rev: AtomicU64,
     current: Mutex<Option<LyricsLoaded>>,
     /// Bumped on every track change so stale fetches drop their results.
     generation: AtomicU64,
     track: Mutex<Option<TrackInfo>>,
     /// The running lookup; aborted when the track changes so skipped songs
     /// don't keep LRCLIB's (strictly rate-limited) request queue busy.
-    inflight: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
+    inflight: Inflight,
 }
 
 impl LyricsService {
@@ -82,10 +88,11 @@ impl LyricsService {
             cache_dir: paths.lyrics_cache(),
             offsets_path,
             offsets: Mutex::new(offsets),
+            offsets_rev: AtomicU64::new(0),
             current: Mutex::new(None),
             generation: AtomicU64::new(0),
             track: Mutex::new(None),
-            inflight: Mutex::new(None),
+            inflight: Inflight::default(),
         }
     }
 
@@ -93,25 +100,40 @@ impl LyricsService {
         lock(&self.current).clone()
     }
 
-    pub fn set_offset(&self, track_id: &str, offset_ms: i64) {
-        let snapshot = {
+    /// Changes a track's offset in memory immediately and saves the offsets
+    /// file [`OFFSET_SAVE_DELAY`] after the last change, off the main thread.
+    pub fn set_offset(self: &Arc<Self>, track_id: &str, offset_ms: i64) {
+        {
             let mut offsets = lock(&self.offsets);
             if offset_ms == 0 {
                 offsets.remove(track_id);
             } else {
                 offsets.insert(track_id.to_owned(), offset_ms);
             }
-            offsets.clone()
-        };
+        }
         if let Some(cur) = lock(&self.current)
             .as_mut()
             .filter(|c| c.track_id == track_id)
         {
             cur.offset_ms = offset_ms;
         }
-        if let Err(e) = paths::write_json(&self.offsets_path, &snapshot) {
-            tracing::warn!("could not save offsets: {e}");
-        }
+        let rev = self.offsets_rev.fetch_add(1, Ordering::SeqCst) + 1;
+        let this = Arc::clone(self);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(OFFSET_SAVE_DELAY).await;
+            if this.offsets_rev.load(Ordering::SeqCst) != rev {
+                return; // a newer change will save
+            }
+            let snapshot = lock(&this.offsets).clone();
+            let path = this.offsets_path.clone();
+            let saved =
+                tokio::task::spawn_blocking(move || paths::write_json(&path, &snapshot)).await;
+            match saved {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => tracing::warn!("could not save offsets: {e}"),
+                Err(_) => tracing::warn!("offset save task failed"),
+            }
+        });
     }
 
     fn offset_for(&self, track_id: &str) -> i64 {
@@ -203,9 +225,7 @@ impl LyricsService {
     }
 
     fn replace_inflight(&self, task: Option<tauri::async_runtime::JoinHandle<()>>) {
-        if let Some(old) = std::mem::replace(&mut *lock(&self.inflight), task) {
-            old.abort();
-        }
+        self.inflight.replace(task);
     }
 
     fn publish(
@@ -275,6 +295,7 @@ impl LyricsService {
                 || paths::unix_now().saturating_sub(entry.fetched_at) < NOT_FOUND_TTL_S;
             if entry.version == CACHE_VERSION && fresh {
                 tracing::debug!("lyrics cache hit for {}", track.title);
+                crate::cache::touch(&path);
                 return Ok(entry.found);
             }
         }
@@ -292,6 +313,18 @@ impl LyricsService {
         }
         Ok(found)
     }
+}
+
+/// Cache entries written under an older [`CACHE_VERSION`] (or unreadable).
+pub fn is_obsolete_cache_file(path: &std::path::Path) -> bool {
+    #[derive(serde::Deserialize)]
+    struct Version {
+        version: u32,
+    }
+    if path.extension().and_then(|e| e.to_str()) != Some("json") {
+        return true;
+    }
+    paths::read_json::<Version>(path).map_or(true, |v| v.version != CACHE_VERSION)
 }
 
 /// Lookup strategy: exact match with the original metadata, then with a
@@ -334,8 +367,4 @@ async fn fetch(client: &lrclib::Client, track: &TrackInfo) -> Result<Option<Foun
         }
     }
     Ok(fallback)
-}
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
 }

@@ -4,6 +4,8 @@ use serde::Serialize;
 pub enum AppError {
     #[error("no media player is connected")]
     NoPlayer,
+    #[error("background task was cancelled")]
+    Cancelled,
     #[cfg(target_os = "linux")]
     #[error("D-Bus error: {0}")]
     DBus(#[from] zbus::Error),
