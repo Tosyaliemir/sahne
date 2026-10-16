@@ -7,12 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The 0.2.0 revision: security hardening, correctness and performance fixes,
+licensing, an English-first repository, tests and release tooling.
+
+### Security
+
+- Artwork URLs from media players are treated as untrusted: `https://` only,
+  no redirects to non-public addresses, bodies streamed and capped at 15 MB,
+  decoding with pixel and memory limits, and `file://` artwork limited to real
+  image files outside `/proc`, `/sys` and `/dev`.
+- LRCLIB responses are capped at 2 MB; the LRC parser can no longer overflow on
+  hostile timestamps or offsets.
+- A strict Content Security Policy and per-window minimal Tauri permissions.
+- Frontend log messages are size-limited and escaped; the temporary-directory
+  fallback is private, and file writes are atomic and crash-safe.
+- Unused camera and video code removed from the metal plate effect.
+- GitHub Actions pinned to commit SHAs with least-privilege permissions;
+  dependencies checked with `cargo deny` and `pnpm audit`. See SECURITY.md.
+
 ### Added
 
 - Settings → About: version, licences of all bundled dependencies, third-party
   notices and disclaimers. The same files ship in the installers.
 - The interface language follows the system locale by default (English or
   Turkish).
+- Performance mode (Auto, Quality, Battery saver) for the animated backdrop and
+  the cover effects.
+- A Clear button for the caches, which are now size-capped and pruned at
+  startup.
+- Accessibility: the settings panel is a proper modal dialog, every control
+  shows keyboard focus, the current lyric lines can be focused and Enter seeks
+  to them, and an optional setting announces new lines to screen readers.
+- Cover effects follow the system's "more contrast" preference.
 
 ### Changed
 
@@ -20,12 +46,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dev.sahne.app`). Settings and caches are unaffected; see "Migration".
 - Settings store English values (`classic`, `fluid`, `electric`, …). Settings
   files from 0.1 still load.
-- Descriptions and installer texts are in English and platform-neutral.
+- Descriptions and installer texts are in English and platform-neutral; the
+  README is in English with a Turkish translation.
+- The settings file is read leniently: one invalid value resets only that
+  setting, and an unreadable file is backed up before it is replaced.
 
 ### Fixed
 
 - Paused or hidden windows no longer draw frames: idle CPU use dropped from
   about 25 % to under 1 % of one core.
+- Changes made in one window (or by the backend) are no longer lost when the
+  other window saves settings; settings and offsets are saved off the main
+  thread.
+- Skipping tracks quickly no longer piles up artwork downloads, and a player
+  reusing one artwork file now gets the new cover.
+- Turning the screensaver off while it shows restores the windows at once.
+- The Wall style shows the interlude indicator during instrumental breaks.
+- A stopped player shows "Stopped" instead of "Paused".
+- A player at the very start of a track is no longer briefly mistaken for one
+  that is stuck at position 0.
+- Windows: stable artwork cache names and correct paths containing `%`; the
+  media-session loop recovers from errors instead of crashing.
+- A crash now leaves a report (`crash.log`) in the cache directory.
 
 ### Migration
 
