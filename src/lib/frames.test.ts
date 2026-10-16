@@ -66,4 +66,28 @@ describe("FrameScheduler (P1)", () => {
     expect(seen).toBe(1);
     expect(isQueued()).toBe(false);
   });
+
+  it("request() draws only the client that asked", () => {
+    const { scheduler, step, isQueued } = manual();
+    let a = 0;
+    let b = 0;
+    const clientA = { tick: () => a++, needsFrame: () => false };
+    scheduler.add(clientA);
+    scheduler.add({ tick: () => b++, needsFrame: () => false });
+    step(); // both draw their first frame
+    expect([a, b]).toEqual([1, 1]);
+    scheduler.request(clientA); // e.g. the pointer moved over an effect
+    expect(step()).toBe(true);
+    expect([a, b]).toEqual([2, 1]);
+    expect(isQueued()).toBe(false);
+  });
+
+  it("request() for a removed client does nothing", () => {
+    const { scheduler, isQueued } = manual();
+    const client = { tick: () => {}, needsFrame: () => false };
+    const remove = scheduler.add(client);
+    remove();
+    scheduler.request(client);
+    expect(isQueued()).toBe(true); // only the frame from add() itself
+  });
 });

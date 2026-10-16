@@ -6,8 +6,8 @@ texts follow the list.
 
 | Item | Source | Copyright | Licence | Files in this repository |
 | --- | --- | --- | --- | --- |
-| React Bits: "Electric Border" | https://reactbits.dev, https://github.com/DavidHDev/react-bits | Copyright (c) 2026 David Haz | MIT + Commons Clause License Condition v1.0 | `src/lib/fx/electricBorder.js` (modified) |
-| React Bits: "Reflective Card" | https://reactbits.dev, https://github.com/DavidHDev/react-bits | Copyright (c) 2026 David Haz | MIT + Commons Clause License Condition v1.0 | `src/lib/fx/reflectivePlate.js` (modified) |
+| React Bits: "Electric Border" | https://reactbits.dev, https://github.com/DavidHDev/react-bits | Copyright (c) 2026 David Haz | MIT + Commons Clause License Condition v1.0 | `src/lib/fx/electricBorder.ts` (modified) |
+| React Bits: "Reflective Card" | https://reactbits.dev, https://github.com/DavidHDev/react-bits | Copyright (c) 2026 David Haz | MIT + Commons Clause License Condition v1.0 | `src/lib/fx/reflectivePlate.ts` (modified) |
 | Manrope typeface | https://github.com/googlefonts/manrope | Copyright 2018 The Manrope Project Authors | SIL Open Font License 1.1 | `src/assets/fonts/Manrope-*.woff2` (subsetted), `src/assets/fonts/OFL.txt` |
 
 The React Bits files are not covered by Sahne's MIT License and may not be

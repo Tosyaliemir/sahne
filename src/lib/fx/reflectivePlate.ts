@@ -4,9 +4,11 @@
 
 // Reflective metal plate: a brushed, beveled card that mirrors a blurred
 // image and tilts toward the pointer. It reflects a single <img> only.
-// Framework-free; see MetalCover.svelte for the wrapper. The tilt and intro
-// are written to CSS variables on `root`: --rc-rotate-x/y, --rc-presence,
-// --rc-lift.
+// Framework-free apart from the shared frame scheduler; see MetalCover.svelte
+// for the wrapper. The tilt and intro are written to CSS variables on `root`:
+// --rc-rotate-x/y, --rc-presence, --rc-lift.
+
+import { frames, type FrameClient } from "../frames";
 
 const VIEW_DISTANCE = 900;
 const OVERSCAN = 1.2;
@@ -266,26 +268,28 @@ void main() {
   fragColor = vec4(color * coverage, coverage);
 }`;
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+type Rgb = [number, number, number];
 
-const toPx = value => {
-  if (typeof value === 'number') return `${value}px`;
-  return value;
-};
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const parseColor = value => {
-  const text = String(value || '').trim();
+const parseColor = (value: string | undefined): Rgb => {
+  const text = String(value || "").trim();
   const hex = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text);
   if (hex) {
-    const full = hex[1].length === 3 ? hex[1].replace(/./g, digit => digit + digit) : hex[1];
-    return [0, 2, 4].map(index => parseInt(full.slice(index, index + 2), 16) / 255);
+    const full = hex[1].length === 3 ? hex[1].replace(/./g, (digit) => digit + digit) : hex[1];
+    return [0, 2, 4].map((index) => parseInt(full.slice(index, index + 2), 16) / 255) as Rgb;
   }
   const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
-  if (rgb) return [rgb[1], rgb[2], rgb[3]].map(channel => clamp(parseFloat(channel) / 255, 0, 1));
+  if (rgb) return [rgb[1], rgb[2], rgb[3]].map((channel) => clamp(parseFloat(channel) / 255, 0, 1)) as Rgb;
   return [1, 1, 1];
 };
 
-const compile = (gl, type, source) => {
+interface Program {
+  program: WebGLProgram;
+  uniforms: Record<string, WebGLUniformLocation | null>;
+}
+
+const compile = (gl: WebGL2RenderingContext, type: number, source: string): WebGLShader | null => {
   const shader = gl.createShader(type);
   if (!shader) return null;
   gl.shaderSource(shader, source);
@@ -298,7 +302,7 @@ const compile = (gl, type, source) => {
   return shader;
 };
 
-const link = (gl, fragmentSource) => {
+const link = (gl: WebGL2RenderingContext, fragmentSource: string): Program | null => {
   const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentSource);
   const program = vertex && fragment ? gl.createProgram() : null;
@@ -309,7 +313,7 @@ const link = (gl, fragmentSource) => {
   }
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
-  gl.bindAttribLocation(program, 0, 'aPosition');
+  gl.bindAttribLocation(program, 0, "aPosition");
   gl.linkProgram(program);
   gl.deleteShader(vertex);
   gl.deleteShader(fragment);
@@ -318,8 +322,8 @@ const link = (gl, fragmentSource) => {
     gl.deleteProgram(program);
     return null;
   }
-  const uniforms = {};
-  const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+  const uniforms: Program["uniforms"] = {};
+  const count: number = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
   for (let index = 0; index < count; index++) {
     const info = gl.getActiveUniform(program, index);
     if (info) uniforms[info.name] = gl.getUniformLocation(program, info.name);
@@ -327,27 +331,65 @@ const link = (gl, fragmentSource) => {
   return { program, uniforms };
 };
 
-const coverMap = (width, height, aspect) => {
+const coverMap = (width: number, height: number, aspect: number): Float32List => {
   const ratio = width / Math.max(1, height);
   const sx = ratio > aspect ? aspect / ratio : 1;
   const sy = ratio > aspect ? 1 : ratio / aspect;
   return [sx, -sy, 0.5 - sx * 0.5, 0.5 + sy * 0.5];
 };
 
-const lodFor = (width, height, envWidth, aspect) => {
+const lodFor = (width: number, height: number, envWidth: number, aspect: number) => {
   const ratio = width / Math.max(1, height);
   const visible = width * (ratio > aspect ? aspect / ratio : 1);
   return Math.max(0, Math.log2(Math.max(1, visible / Math.max(1, envWidth))) - 0.5);
 };
 
-const createRenderer = canvas => {
-  const gl = canvas.getContext('webgl2', {
+interface Target {
+  texture: WebGLTexture;
+  framebuffer: WebGLFramebuffer;
+  width: number;
+  height: number;
+}
+
+/** The image the plate reflects, and how far it has faded in. */
+interface Source {
+  element: HTMLImageElement;
+  src: string;
+  ready: boolean;
+  failed: boolean;
+  width: number;
+  height: number;
+  mix: number;
+}
+
+export interface ReflectiveOptions {
+  theme?: "dark" | "light";
+  tint?: string;
+  metalness?: number;
+  roughness?: number;
+  blurStrength?: number;
+  grayscale?: number;
+  warp?: number;
+  warpScale?: number;
+  shine?: number;
+  bevel?: number;
+  glare?: number;
+  enableTilt?: boolean;
+  tiltStrength?: number;
+  radius?: number;
+  intro?: boolean;
+}
+
+export type ReflectiveSettings = ReturnType<typeof reflectiveSettings>;
+
+const createRenderer = (canvas: HTMLCanvasElement) => {
+  const gl = canvas.getContext("webgl2", {
     alpha: true,
     premultipliedAlpha: true,
     antialias: false,
     depth: false,
     stencil: false,
-    powerPreference: 'default'
+    powerPreference: "default",
   });
   if (!gl) return null;
   const captureProgram = link(gl, CAPTURE);
@@ -360,7 +402,7 @@ const createRenderer = canvas => {
     return null;
   }
 
-  const createTexture = (mipmaps, wrap) => {
+  const createTexture = (mipmaps: boolean, wrap: number) => {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mipmaps ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
@@ -371,7 +413,7 @@ const createRenderer = canvas => {
     return texture;
   };
 
-  const createTarget = () => {
+  const createTarget = (): Target => {
     const texture = createTexture(false, gl.MIRRORED_REPEAT);
     const framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -380,7 +422,7 @@ const createRenderer = canvas => {
     return { texture, framebuffer, width: 1, height: 1 };
   };
 
-  const allocate = (target, width, height) => {
+  const allocate = (target: Target, width: number, height: number) => {
     if (target.width === width && target.height === height) return;
     target.width = width;
     target.height = height;
@@ -404,19 +446,19 @@ const createRenderer = canvas => {
   const blurY = createTarget();
   const rotation = new Float32Array(9);
 
-  const pass = (target, program) => {
+  const pass = (target: Target | null, program: Program) => {
     gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.framebuffer : null);
     gl.viewport(0, 0, target ? target.width : canvas.width, target ? target.height : canvas.height);
     gl.useProgram(program.program);
     return program.uniforms;
   };
 
-  const bind = (unit, texture) => {
+  const bind = (unit: number, texture: WebGLTexture) => {
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, texture);
   };
 
-  const upload = element => {
+  const upload = (element: HTMLImageElement) => {
     try {
       gl.bindTexture(gl.TEXTURE_2D, imageTexture);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -429,7 +471,21 @@ const createRenderer = canvas => {
     }
   };
 
-  const renderEnv = ({ width, height, scale, blur, roughness, image }) => {
+  const renderEnv = ({
+    width,
+    height,
+    scale,
+    blur,
+    roughness,
+    image,
+  }: {
+    width: number;
+    height: number;
+    scale: number;
+    blur: number;
+    roughness: number;
+    image: Source;
+  }) => {
     const envScale = clamp(2.5 / Math.max(blur, 0.01), 0.12, scale);
     const envWidth = Math.max(8, Math.ceil(width * OVERSCAN * envScale));
     const envHeight = Math.max(8, Math.ceil(height * OVERSCAN * envScale));
@@ -461,7 +517,27 @@ const createRenderer = canvas => {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 
-  const renderPlate = ({ width, height, rotateX, rotateY, capture: amount, glare, pointerX, pointerY, settings }) => {
+  const renderPlate = ({
+    width,
+    height,
+    rotateX,
+    rotateY,
+    capture: amount,
+    glare,
+    pointerX,
+    pointerY,
+    settings,
+  }: {
+    width: number;
+    height: number;
+    rotateX: number;
+    rotateY: number;
+    capture: number;
+    glare: number;
+    pointerX: number;
+    pointerY: number;
+    settings: ReflectiveSettings;
+  }) => {
     const cx = Math.cos(rotateX);
     const sx = Math.sin(rotateX);
     const cy = Math.cos(rotateY);
@@ -509,8 +585,8 @@ const createRenderer = canvas => {
 
 /** Normalizes user-facing options into what the renderer reads each frame. */
 export function reflectiveSettings({
-  theme = 'dark',
-  tint = '#ffffff',
+  theme = "dark",
+  tint = "#ffffff",
   metalness = 1,
   roughness = 0.3,
   blurStrength = 6,
@@ -523,11 +599,11 @@ export function reflectiveSettings({
   enableTilt = true,
   tiltStrength = 12,
   radius = 24,
-  intro = true
-} = {}) {
-  const palette = theme === 'light' ? 'light' : 'dark';
+  intro = true,
+}: ReflectiveOptions = {}) {
+  const palette = theme === "light" ? "light" : "dark";
   return {
-    tint: parseColor(tint).map(channel => Math.pow(channel, 2.2)),
+    tint: parseColor(tint).map((channel) => Math.pow(channel, 2.2)) as Rgb,
     metalness: clamp(metalness, 0, 1),
     roughness: clamp(roughness, 0, 1),
     blurStrength: clamp(blurStrength, 0, 40),
@@ -540,45 +616,62 @@ export function reflectiveSettings({
     enableTilt,
     tiltStrength: clamp(tiltStrength, 0, 30),
     radius: Math.max(0, radius),
-    theme: palette === 'light' ? 1 : 0,
-    intro
+    theme: palette === "light" ? 1 : 0,
+    intro,
   };
+}
+
+export interface ReflectivePlate {
+  /** Draws at least one more frame (e.g. the options or the image changed). */
+  wake(): void;
+  destroy(): void;
 }
 
 /**
  * `root` receives the pointer and the CSS variables, `body` is measured,
- * `canvas` draws the plate, `image` is the <img> it reflects.
+ * `canvas` draws the plate, `image` is the <img> it reflects. Frames come
+ * from the shared scheduler, so nothing is drawn while the window is
+ * hidden.
  */
-export function createReflectivePlate({ root, body, canvas, image }, getSettings, { isFirst = true, onRestore = () => {} } = {}) {
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+export function createReflectivePlate(
+  {
+    root,
+    body,
+    canvas,
+    image,
+  }: { root: HTMLElement; body: HTMLElement; canvas: HTMLCanvasElement; image: HTMLImageElement },
+  getSettings: () => ReflectiveSettings,
+  { isFirst = true, onRestore = () => {} }: { isFirst?: boolean; onRestore?: () => void } = {},
+): ReflectivePlate {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const renderer = createRenderer(canvas);
   const x = { p: 0, v: 0, target: 0 };
   const y = { p: 0, v: 0, target: 0 };
   const light = { p: 0, target: 0 };
   const pointer = { x: 0, y: 0 };
   const size = { width: body.offsetWidth, height: body.offsetHeight, scale: 1 };
-  const source = { element: image, src: '', ready: false, failed: false, width: 0, height: 0, mix: 0 };
+  const source: Source = { element: image, src: "", ready: false, failed: false, width: 0, height: 0, mix: 0 };
   let presence = 1;
   let presenceStart = 0;
   let slowUntil = 0;
-  let touchId = null;
-  let raf = 0;
-  let last = 0;
+  let touchId: number | null = null;
+  let last = performance.now();
+  /** Whether the last frame asked for another one. */
+  let busy = true;
   let visible = true;
-  let pageVisible = document.visibilityState !== 'hidden';
   let lost = false;
-  let envKey = '';
+  let envKey = "";
   let envFresh = false;
 
   const write = () => {
     const { enableTilt: tiltOn, tiltStrength: strength } = getSettings();
     const angle = tiltOn && !reduced ? strength : 0;
     const style = root.style;
-    style.setProperty('--rc-rotate-x', `${(y.p * angle).toFixed(3)}deg`);
-    style.setProperty('--rc-rotate-y', `${(-x.p * angle).toFixed(3)}deg`);
+    style.setProperty("--rc-rotate-x", `${(y.p * angle).toFixed(3)}deg`);
+    style.setProperty("--rc-rotate-y", `${(-x.p * angle).toFixed(3)}deg`);
     const eased = 1 - Math.pow(1 - presence, 3);
-    style.setProperty('--rc-presence', eased.toFixed(4));
-    style.setProperty('--rc-lift', `${((1 - eased) * 14).toFixed(2)}px`);
+    style.setProperty("--rc-presence", eased.toFixed(4));
+    style.setProperty("--rc-lift", `${((1 - eased) * 14).toFixed(2)}px`);
   };
 
   /** Uploads the image once per new src; true when the texture changed. */
@@ -602,7 +695,7 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
     return true;
   };
 
-  const fade = dt => {
+  const fade = (dt: number) => {
     const target = source.ready && !source.failed && source.src ? 1 : 0;
     const before = source.mix;
     source.mix += (target - source.mix) * (1 - Math.exp(-dt / FADE_SECONDS));
@@ -623,8 +716,7 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
     envFresh = true;
   };
 
-  const frame = now => {
-    raf = 0;
+  const frame = (now: number) => {
     if (lost) return;
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
@@ -677,7 +769,7 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
           scale: size.scale,
           blur: s.blurStrength,
           roughness: s.roughness,
-          image: source
+          image: source,
         });
       }
       envFresh = false;
@@ -691,20 +783,25 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
         glare: s.glare * light.p,
         pointerX: pointer.x,
         pointerY: pointer.y,
-        settings: s
+        settings: s,
       });
     }
 
-    if ((moving || fading) && visible && pageVisible) raf = requestAnimationFrame(frame);
+    busy = moving || fading;
+  };
+
+  const client: FrameClient = {
+    tick: frame,
+    needsFrame: () => busy && visible && !lost,
   };
 
   const wake = () => {
-    if (raf || lost || !visible || !pageVisible) return;
-    last = performance.now();
-    raf = requestAnimationFrame(frame);
+    if (lost || !visible) return;
+    if (!busy) last = performance.now();
+    frames.request(client);
   };
 
-  const aim = (nx, ny, on = true) => {
+  const aim = (nx: number, ny: number, on = true) => {
     x.target = clamp(nx, -1, 1);
     y.target = clamp(ny, -1, 1);
     light.target = on ? 1 : 0;
@@ -712,7 +809,7 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
     wake();
   };
 
-  const aimAt = event => {
+  const aimAt = (event: PointerEvent) => {
     const rect = root.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -724,42 +821,40 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
 
   const release = () => aim(0, 0, false);
 
-  const onEnter = event => {
-    if (event.pointerType === 'mouse') aimAt(event);
+  const onEnter = (event: PointerEvent) => {
+    if (event.pointerType === "mouse") aimAt(event);
   };
-  const onMove = event => {
-    if (event.pointerType === 'mouse' || event.pointerId === touchId) aimAt(event);
+  const onMove = (event: PointerEvent) => {
+    if (event.pointerType === "mouse" || event.pointerId === touchId) aimAt(event);
   };
-  const onLeave = event => {
-    if (event.pointerType === 'mouse') release();
+  const onLeave = (event: PointerEvent) => {
+    if (event.pointerType === "mouse") release();
   };
-  const onDown = event => {
-    if (event.pointerType === 'mouse') return;
+  const onDown = (event: PointerEvent) => {
+    if (event.pointerType === "mouse") return;
     touchId = event.pointerId;
     aimAt(event);
   };
-  const onUp = event => {
+  const onUp = (event: PointerEvent) => {
     if (event.pointerId !== touchId) return;
     touchId = null;
     release();
   };
 
-  root.addEventListener('pointerenter', onEnter);
-  root.addEventListener('pointermove', onMove);
-  root.addEventListener('pointerleave', onLeave);
-  root.addEventListener('pointerdown', onDown);
-  root.addEventListener('pointerup', onUp);
-  root.addEventListener('pointercancel', onUp);
+  root.addEventListener("pointerenter", onEnter);
+  root.addEventListener("pointermove", onMove);
+  root.addEventListener("pointerleave", onLeave);
+  root.addEventListener("pointerdown", onDown);
+  root.addEventListener("pointerup", onUp);
+  root.addEventListener("pointercancel", onUp);
 
-  const onLost = event => {
+  const onLost = (event: Event) => {
     event.preventDefault();
     lost = true;
-    cancelAnimationFrame(raf);
-    raf = 0;
   };
   const onRestored = () => onRestore();
-  canvas.addEventListener('webglcontextlost', onLost);
-  canvas.addEventListener('webglcontextrestored', onRestored);
+  canvas.addEventListener("webglcontextlost", onLost);
+  canvas.addEventListener("webglcontextrestored", onRestored);
 
   const resizeObserver = new ResizeObserver(() => {
     resize();
@@ -768,21 +863,15 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
   resizeObserver.observe(body);
   resize();
 
-  const intersection = new IntersectionObserver(entries => {
-    visible = entries.some(entry => entry.isIntersecting);
+  const intersection = new IntersectionObserver((entries) => {
+    visible = entries.some((entry) => entry.isIntersecting);
     wake();
   });
   intersection.observe(root);
 
-  const onVisibility = () => {
-    pageVisible = document.visibilityState !== 'hidden';
-    wake();
-  };
-  document.addEventListener('visibilitychange', onVisibility);
-
   const onImage = () => wake();
-  image.addEventListener('load', onImage);
-  image.addEventListener('error', onImage);
+  image.addEventListener("load", onImage);
+  image.addEventListener("error", onImage);
 
   if (getSettings().intro && !reduced && isFirst) {
     x.p = 0.62;
@@ -795,23 +884,22 @@ export function createReflectivePlate({ root, body, canvas, image }, getSettings
     slowUntil = performance.now() + INTRO_MS;
   }
   write();
-  wake();
+  const stopFrames = frames.add(client);
 
   const destroy = () => {
-    cancelAnimationFrame(raf);
+    stopFrames();
     resizeObserver.disconnect();
     intersection.disconnect();
-    document.removeEventListener('visibilitychange', onVisibility);
-    root.removeEventListener('pointerenter', onEnter);
-    root.removeEventListener('pointermove', onMove);
-    root.removeEventListener('pointerleave', onLeave);
-    root.removeEventListener('pointerdown', onDown);
-    root.removeEventListener('pointerup', onUp);
-    root.removeEventListener('pointercancel', onUp);
-    canvas.removeEventListener('webglcontextlost', onLost);
-    canvas.removeEventListener('webglcontextrestored', onRestored);
-    image.removeEventListener('load', onImage);
-    image.removeEventListener('error', onImage);
+    root.removeEventListener("pointerenter", onEnter);
+    root.removeEventListener("pointermove", onMove);
+    root.removeEventListener("pointerleave", onLeave);
+    root.removeEventListener("pointerdown", onDown);
+    root.removeEventListener("pointerup", onUp);
+    root.removeEventListener("pointercancel", onUp);
+    canvas.removeEventListener("webglcontextlost", onLost);
+    canvas.removeEventListener("webglcontextrestored", onRestored);
+    image.removeEventListener("load", onImage);
+    image.removeEventListener("error", onImage);
     renderer?.dispose();
   };
 

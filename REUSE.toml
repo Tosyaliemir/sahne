@@ -10,7 +10,7 @@ SPDX-License-Identifier = "MIT"
 
 # Derived from React Bits; keep the upstream licence.
 [[annotations]]
-path = ["src/lib/fx/electricBorder.js", "src/lib/fx/reflectivePlate.js"]
+path = ["src/lib/fx/electricBorder.ts", "src/lib/fx/reflectivePlate.ts"]
 precedence = "override"
 SPDX-FileCopyrightText = ["2026 David Haz", "2026 Sahne contributors"]
 SPDX-License-Identifier = "LicenseRef-MIT-Commons-Clause"

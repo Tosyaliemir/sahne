@@ -4,13 +4,14 @@
 
 // Electric border: crackling light running along a rounded rectangle, drawn
 // in a canvas that overhangs the element by MARGIN px on every side.
-// Framework-free; see ElectricBorder.svelte for the wrapper.
+// Framework-free apart from the shared frame scheduler; see
+// ElectricBorder.svelte for the wrapper.
 
-export { MARGIN };
+import { frames, type FrameClient } from "../frames";
 
 const ARCS = 4;
 const PULSES = 3;
-const MARGIN = 64;
+export const MARGIN = 64;
 const PIXEL_BUDGET = 3e6;
 const SURGE_SPEED = 560;
 const HALF_PI = Math.PI / 2;
@@ -258,30 +259,37 @@ void main() {
   fragColor = vec4(clamp(color + grain, 0.0, alpha), alpha);
 }`;
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+type Rgb = [number, number, number];
 
-const parseColor = value => {
-  const text = String(value || '').trim();
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const parseColor = (value: string | undefined): Rgb => {
+  const text = String(value || "").trim();
   const hex = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text);
   if (hex) {
-    const full = hex[1].length === 3 ? hex[1].replace(/./g, digit => digit + digit) : hex[1];
-    return [0, 2, 4].map(index => parseInt(full.slice(index, index + 2), 16) / 255);
+    const full = hex[1].length === 3 ? hex[1].replace(/./g, (digit) => digit + digit) : hex[1];
+    return [0, 2, 4].map((index) => parseInt(full.slice(index, index + 2), 16) / 255) as Rgb;
   }
   const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
-  if (rgb) return [rgb[1], rgb[2], rgb[3]].map(channel => clamp(parseFloat(channel) / 255, 0, 1));
-  if (typeof document !== 'undefined') {
-    const context = document.createElement('canvas').getContext('2d');
+  if (rgb) return [rgb[1], rgb[2], rgb[3]].map((channel) => clamp(parseFloat(channel) / 255, 0, 1)) as Rgb;
+  if (typeof document !== "undefined") {
+    const context = document.createElement("canvas").getContext("2d");
     if (context) {
-      context.fillStyle = '#000000';
+      context.fillStyle = "#000000";
       context.fillStyle = text;
       const normal = String(context.fillStyle);
-      if (normal !== '#000000' || /^(#0{3}|#0{6}|black)$/i.test(text)) return parseColor(normal);
+      if (normal !== "#000000" || /^(#0{3}|#0{6}|black)$/i.test(text)) return parseColor(normal);
     }
   }
   return [0.49, 0.98, 1];
 };
 
-const compile = (gl, type, source) => {
+interface Program {
+  program: WebGLProgram;
+  uniforms: Record<string, WebGLUniformLocation | null>;
+}
+
+const compile = (gl: WebGL2RenderingContext, type: number, source: string): WebGLShader | null => {
   const shader = gl.createShader(type);
   if (!shader) return null;
   gl.shaderSource(shader, source);
@@ -294,7 +302,7 @@ const compile = (gl, type, source) => {
   return shader;
 };
 
-const link = gl => {
+const link = (gl: WebGL2RenderingContext): Program | null => {
   const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
   const program = vertex && fragment ? gl.createProgram() : null;
@@ -313,22 +321,34 @@ const link = gl => {
     gl.deleteProgram(program);
     return null;
   }
-  const uniforms = {};
-  const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+  const uniforms: Program["uniforms"] = {};
+  const count: number = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
   for (let index = 0; index < count; index++) {
     const info = gl.getActiveUniform(program, index);
-    if (info) uniforms[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(program, info.name);
+    if (info) uniforms[info.name.replace(/\[0\]$/, "")] = gl.getUniformLocation(program, info.name);
   }
   return { program, uniforms };
 };
 
-const roundBox = (x, y, hx, hy, r) => {
+const roundBox = (x: number, y: number, hx: number, hy: number, r: number) => {
   const qx = Math.abs(x) - (hx - r);
   const qy = Math.abs(y) - (hy - r);
   return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
 };
 
-const pathOf = (width, height, radius, offset) => {
+/** A rounded rectangle, parameterised by arc length along its edge. */
+interface Path {
+  hx: number;
+  hy: number;
+  r: number;
+  vr: number;
+  ax: number;
+  ay: number;
+  quarter: number;
+  perimeter: number;
+}
+
+const pathOf = (width: number, height: number, radius: number, offset: number): Path => {
   const hx = Math.max(1, width / 2 + offset);
   const hy = Math.max(1, height / 2 + offset);
   const r = clamp(radius + offset, 0, Math.min(hx, hy));
@@ -339,14 +359,14 @@ const pathOf = (width, height, radius, offset) => {
   return { hx, hy, r, vr, ax, ay, quarter, perimeter: quarter * 4 };
 };
 
-const pointOn = (path, s) => {
+const pointOn = (path: Path, s: number) => {
   const { hx, hy, r, vr, ax, ay, quarter, perimeter } = path;
   const u = ((s % perimeter) + perimeter) % perimeter;
   const part = Math.min(3, Math.floor(u / quarter));
   const rest = u - part * quarter;
   const local = part % 2 ? quarter - rest : rest;
-  let x;
-  let y;
+  let x: number;
+  let y: number;
   if (local <= ax) {
     x = local;
     y = -hy;
@@ -377,11 +397,11 @@ const pointOn = (path, s) => {
   return { x: px, y: py, nx: nx / length, ny: ny / length };
 };
 
-const nearestOn = (path, x, y) => {
+const nearestOn = (path: Path, x: number, y: number) => {
   const { ax, ay, vr, quarter } = path;
   const qx = Math.abs(x) - ax;
   const qy = Math.abs(y) - ay;
-  let t;
+  let t: number;
   if (qx > 0 && qy > 0) t = ax + vr * Math.atan2(qx, qy);
   else if (qx > qy) t = ax + HALF_PI * vr + ay - Math.abs(y);
   else t = Math.abs(x);
@@ -390,9 +410,34 @@ const nearestOn = (path, x, y) => {
   return y < 0 ? 4 * quarter - t : 2 * quarter + t;
 };
 
+export interface ElectricOptions {
+  color?: string;
+  glowColor?: string;
+  speed?: number;
+  chaos?: number;
+  spread?: number;
+  thickness?: number;
+  strands?: number;
+  glow?: number;
+  intensity?: number;
+  arcs?: number;
+  flicker?: number;
+  borderRadius?: number;
+  offset?: number;
+  active?: boolean;
+  intro?: boolean;
+  interactive?: boolean;
+  cursorRadius?: number;
+  theme?: "dark" | "light";
+  /** Freeze on the current frame and stop rendering (e.g. while paused). */
+  paused?: boolean;
+}
+
+export type ElectricSettings = ReturnType<typeof electricSettings>;
+
 /** Normalizes user-facing options into what the renderer reads each frame. */
 export function electricSettings({
-  color = '#7df9ff',
+  color = "#7df9ff",
   glowColor,
   speed = 1,
   chaos = 0.5,
@@ -409,13 +454,13 @@ export function electricSettings({
   intro = true,
   interactive = true,
   cursorRadius = 90,
-  theme = 'dark',
-  paused = false
-} = {}) {
+  theme = "dark",
+  paused = false,
+}: ElectricOptions = {}) {
   const base = parseColor(color);
   return {
     paused,
-    core: base.map(channel => channel + (1 - channel) * 0.55),
+    core: base.map((channel) => channel + (1 - channel) * 0.55) as Rgb,
     glowColor: glowColor ? parseColor(glowColor) : base,
     speed: Math.max(0, speed),
     chaos: clamp(chaos, 0, 2),
@@ -432,28 +477,52 @@ export function electricSettings({
     intro,
     interactive,
     cursorRadius: Math.max(1, cursorRadius),
-    light: theme === 'light'
+    light: theme === "light",
   };
+}
+
+interface Spark {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  bow: number;
+  seed: number;
+  born: number;
+  life: number;
+}
+
+export interface ElectricBorder {
+  /** Re-measures and redraws; call after options change. */
+  refresh(): void;
+  destroy(): void;
 }
 
 /**
  * Starts the effect. `getSettings` is read every frame, so option changes
- * apply live; call `refresh()` after changing them to wake a sleeping loop.
- * Returns null when WebGL2 is unavailable.
+ * apply live; call `refresh()` after changing them to wake a sleeping
+ * effect. Frames come from the shared scheduler, so the effect draws
+ * nothing while the window is hidden. Returns null when WebGL2 is
+ * unavailable.
  */
-export function createElectricBorder(container, canvas, getSettings, { isFirst = true, onRestore = () => {} } = {}) {
-  const gl = canvas.getContext('webgl2', {
+export function createElectricBorder(
+  container: HTMLElement,
+  canvas: HTMLCanvasElement,
+  getSettings: () => ElectricSettings,
+  { isFirst = true, onRestore = () => {} }: { isFirst?: boolean; onRestore?: () => void } = {},
+): ElectricBorder | null {
+  const gl = canvas.getContext("webgl2", {
     alpha: true,
     premultipliedAlpha: true,
     antialias: false,
     depth: false,
     stencil: false,
-    powerPreference: 'default'
+    powerPreference: "default",
   });
   const program = gl ? link(gl) : null;
   if (!gl || !program) return null;
 
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const vao = gl.createVertexArray();
   const arcEnds = new Float32Array(ARCS * 4);
   const arcShape = new Float32Array(ARCS * 4);
@@ -461,8 +530,8 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
   const size = { width: 1, height: 1, ratio: 1 };
   const pointer = { x: 0, y: 0, over: false, near: false };
   const hover = { x: 0, y: 0, vx: 0, vy: 0, power: 0 };
-  const sparks = [];
-  const pulses = [];
+  const sparks: Spark[] = [];
+  const pulses: { s: number; born: number }[] = [];
   const first = getSettings();
   let power = first.active && !(first.intro && !reduced && isFirst) ? 1 : 0;
   let reveal = power;
@@ -470,10 +539,10 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
   let ink = first.light ? 1 : 0;
   let path = pathOf(1, 1, 0, 0);
   let time = Math.random() * 100;
-  let raf = 0;
-  let last = 0;
+  let last = performance.now();
+  /** Whether the last frame asked for another one. */
+  let busy = true;
   let visible = true;
-  let pageVisible = document.visibilityState !== 'hidden';
   let lost = false;
 
   const resize = () => {
@@ -482,7 +551,11 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
     const height = Math.max(1, container.offsetHeight);
     const canvasWidth = width + MARGIN * 2;
     const canvasHeight = height + MARGIN * 2;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(PIXEL_BUDGET / (canvasWidth * canvasHeight)));
+    const ratio = Math.min(
+      window.devicePixelRatio || 1,
+      2,
+      Math.sqrt(PIXEL_BUDGET / (canvasWidth * canvasHeight)),
+    );
     const pixelWidth = Math.max(1, Math.round(canvasWidth * ratio));
     const pixelHeight = Math.max(1, Math.round(canvasHeight * ratio));
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -495,7 +568,7 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
     path = pathOf(width, height, s.borderRadius, s.offset);
   };
 
-  const spawnArc = (now, near) => {
+  const spawnArc = (now: number, near: number | null): Spark => {
     const span = Math.min(path.perimeter * 0.3, 60 + Math.random() * 90);
     const start = near ?? Math.random() * path.perimeter;
     const from = start - span * (0.2 + Math.random() * 0.6);
@@ -516,11 +589,11 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
       bow: side >= 0 ? bow : -bow,
       seed: 1 + Math.random() * 60,
       born: now,
-      life: 0.35 + Math.random() * 0.45
+      life: 0.35 + Math.random() * 0.45,
     };
   };
 
-  const render = (s, heatPower) => {
+  const render = (s: ElectricSettings, heatPower: number) => {
     const u = program.uniforms;
     const width = size.width + MARGIN * 2;
     const height = size.height + MARGIN * 2;
@@ -541,12 +614,12 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
       Math.max(1, Math.round(path.perimeter / 75)),
       Math.max(2, Math.round(path.perimeter / 25)),
       Math.max(3, Math.round(path.perimeter / 9)),
-      Math.max(4, Math.round(path.perimeter / 4))
+      Math.max(4, Math.round(path.perimeter / 4)),
     );
     gl.uniform2f(
       u.uSoft,
       Math.max(1, Math.round(path.perimeter / 150)),
-      Math.max(1, Math.round(path.perimeter / 50))
+      Math.max(1, Math.round(path.perimeter / 50)),
     );
     gl.uniform1f(u.uTime, time);
     gl.uniform1f(u.uPower, power * power * (3 - 2 * power));
@@ -570,8 +643,7 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 
-  const frame = now => {
-    raf = 0;
+  const frame = (now: number) => {
     if (lost) return;
     const s = getSettings();
     const dt = clamp((now - last) / 1000 || 0, 0, 0.05);
@@ -649,21 +721,28 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
 
     const settled = Math.abs((s.active ? 1 : 0) - power) < 0.002 && (!s.active || reveal >= 1);
     // Paused and settled: stop drawing; the canvas keeps the last frame.
-    const busy = s.paused ? !settled || sparks.length > 0 : power > 0.002 || s.active || sparks.length > 0;
-    if (busy && visible && pageVisible) raf = requestAnimationFrame(frame);
+    busy = s.paused
+      ? !settled || sparks.length > 0
+      : power > 0.002 || s.active || sparks.length > 0;
   };
 
+  const client: FrameClient = {
+    tick: frame,
+    needsFrame: () => busy && visible && !lost,
+  };
+
+  /** Draws at least one more frame; restarts the clock if the effect slept. */
   const wake = () => {
-    if (raf || lost || !visible || !pageVisible) return;
-    last = performance.now();
-    raf = requestAnimationFrame(frame);
+    if (lost || !visible) return;
+    if (!busy) last = performance.now();
+    frames.request(client);
   };
   const refresh = () => {
     resize();
     wake();
   };
 
-  const locate = event => {
+  const locate = (event: PointerEvent) => {
     const rect = container.getBoundingClientRect();
     pointer.x = event.clientX - rect.left;
     pointer.y = event.clientY - rect.top;
@@ -675,12 +754,12 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
       pointer.y <= rect.height + MARGIN / 2;
   };
 
-  const onPointerMove = event => {
+  const onPointerMove = (event: PointerEvent) => {
     locate(event);
     if (pointer.near) wake();
   };
 
-  const onPointerDown = event => {
+  const onPointerDown = (event: PointerEvent) => {
     locate(event);
     const s = getSettings();
     if (!pointer.over || !s.interactive || !s.active || reduced) return;
@@ -696,19 +775,17 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
     pointer.near = false;
   };
 
-  window.addEventListener('pointermove', onPointerMove, { passive: true });
-  window.addEventListener('pointerdown', onPointerDown, { passive: true });
-  document.documentElement.addEventListener('pointerleave', onLeave);
+  window.addEventListener("pointermove", onPointerMove, { passive: true });
+  window.addEventListener("pointerdown", onPointerDown, { passive: true });
+  document.documentElement.addEventListener("pointerleave", onLeave);
 
-  const onLost = event => {
+  const onLost = (event: Event) => {
     event.preventDefault();
     lost = true;
-    cancelAnimationFrame(raf);
-    raf = 0;
   };
   const onRestored = () => onRestore();
-  canvas.addEventListener('webglcontextlost', onLost);
-  canvas.addEventListener('webglcontextrestored', onRestored);
+  canvas.addEventListener("webglcontextlost", onLost);
+  canvas.addEventListener("webglcontextrestored", onRestored);
 
   const resizeObserver = new ResizeObserver(() => {
     resize();
@@ -716,31 +793,24 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
   });
   resizeObserver.observe(container);
 
-  const intersection = new IntersectionObserver(entries => {
-    visible = entries.some(entry => entry.isIntersecting);
+  const intersection = new IntersectionObserver((entries) => {
+    visible = entries.some((entry) => entry.isIntersecting);
     wake();
   });
   intersection.observe(container);
 
-  const onVisibility = () => {
-    pageVisible = document.visibilityState !== 'hidden';
-    wake();
-  };
-  document.addEventListener('visibilitychange', onVisibility);
-
   resize();
-  wake();
+  const stopFrames = frames.add(client);
 
   const destroy = () => {
-    cancelAnimationFrame(raf);
+    stopFrames();
     resizeObserver.disconnect();
     intersection.disconnect();
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerdown', onPointerDown);
-    document.documentElement.removeEventListener('pointerleave', onLeave);
-    document.removeEventListener('visibilitychange', onVisibility);
-    canvas.removeEventListener('webglcontextlost', onLost);
-    canvas.removeEventListener('webglcontextrestored', onRestored);
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerdown", onPointerDown);
+    document.documentElement.removeEventListener("pointerleave", onLeave);
+    canvas.removeEventListener("webglcontextlost", onLost);
+    canvas.removeEventListener("webglcontextrestored", onRestored);
     if (!gl.isContextLost()) {
       gl.deleteVertexArray(vao);
       gl.deleteProgram(program.program);

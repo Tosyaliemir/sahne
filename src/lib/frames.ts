@@ -23,7 +23,7 @@ interface Entry {
 }
 
 export class FrameScheduler {
-  private entries = new Set<Entry>();
+  private entries = new Map<FrameClient, Entry>();
   private observers = new Set<(now: number) => void>();
   private raf = 0;
   private hidden = false;
@@ -31,18 +31,29 @@ export class FrameScheduler {
   frames = 0;
 
   constructor(
-    private request: (cb: FrameRequestCallback) => number = (cb) => requestAnimationFrame(cb),
-    private cancel: (id: number) => void = (id) => cancelAnimationFrame(id),
+    private requestFrame: (cb: FrameRequestCallback) => number = (cb) => requestAnimationFrame(cb),
+    private cancelFrame: (id: number) => void = (id) => cancelAnimationFrame(id),
   ) {}
 
   /** Registers a client (it is drawn once right away); returns its removal. */
   add(client: FrameClient): () => void {
     const entry: Entry = { client, pending: true };
-    this.entries.add(entry);
+    this.entries.set(client, entry);
     this.schedule();
     return () => {
-      this.entries.delete(entry);
+      if (this.entries.get(client) === entry) this.entries.delete(client);
     };
+  }
+
+  /**
+   * One more frame for this client only (e.g. the pointer moved over an
+   * effect), without making every other client redraw.
+   */
+  request(client: FrameClient): void {
+    const entry = this.entries.get(client);
+    if (!entry) return;
+    entry.pending = true;
+    this.schedule();
   }
 
   /** Calls `cb` on every frame that runs anyway, without causing frames. */
@@ -55,7 +66,7 @@ export class FrameScheduler {
 
   /** Something visible changed: every client draws one more frame. */
   wake(): void {
-    for (const e of this.entries) e.pending = true;
+    for (const e of this.entries.values()) e.pending = true;
     this.schedule();
   }
 
@@ -64,7 +75,7 @@ export class FrameScheduler {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     if (hidden) {
-      this.cancel(this.raf);
+      this.cancelFrame(this.raf);
       this.raf = 0;
     } else {
       this.wake();
@@ -82,14 +93,14 @@ export class FrameScheduler {
 
   private schedule(): void {
     if (this.raf || this.hidden || this.entries.size === 0) return;
-    this.raf = this.request(this.frame);
+    this.raf = this.requestFrame(this.frame);
   }
 
   private frame = (now: number): void => {
     this.raf = 0;
     this.frames++;
     let again = false;
-    for (const e of this.entries) {
+    for (const e of this.entries.values()) {
       if (e.pending || e.client.needsFrame()) {
         e.pending = false;
         e.client.tick(now);
