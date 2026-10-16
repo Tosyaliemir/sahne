@@ -126,6 +126,9 @@ Kapak efektleri (Ayarlar → Görünüm → Kapak efekti) renklerini kapaktan al
   yaklaşınca kıvılcımlanır, tıklayınca bir dalga yayar.
 
 İkisi de WebGL2 ister ve sistem hareketin azaltılmasını istiyorsa kapanır.
+Sistem daha yüksek kontrast istiyorsa elektrik kenarlık daha az parlar ve
+titrer, metal plaka hareketli parıltılarını bırakır; Pil tasarrufu modunda
+elektrik kenarlık kıvılcımsız ve 30 fps çizilir, plaka 1x çözünürlükte çizilir.
 **Kenar ışığı**, ekranın kenarları boyunca akan renkler ekler.
 
 ![Pencerenin sağında açık ayarlar paneli](docs/screenshots/settings.webp)

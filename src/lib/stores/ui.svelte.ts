@@ -3,6 +3,7 @@ export type LyricsStyle = (typeof STYLES)[number];
 
 const reducedMotion =
   typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+const moreContrast = typeof matchMedia === "function" ? matchMedia("(prefers-contrast: more)") : null;
 
 const SWITCH_FADE_MS = 220;
 
@@ -10,6 +11,8 @@ class UiStore {
   /** Style chosen by the user; the settings store keeps it in sync. */
   style = $state<LyricsStyle>("classic");
   reducedMotion = $state(reducedMotion?.matches ?? false);
+  /** The system asks for more contrast: calmer, less glowing effects. */
+  moreContrast = $state(moreContrast?.matches ?? false);
   controlsVisible = $state(true);
   settingsOpen = $state(false);
   /** The window is hidden or minimised; nothing should animate. */
@@ -27,6 +30,7 @@ class UiStore {
 
   constructor() {
     reducedMotion?.addEventListener("change", (e) => (this.reducedMotion = e.matches));
+    moreContrast?.addEventListener("change", (e) => (this.moreContrast = e.matches));
   }
 
   /** What is actually rendered: reduced motion always wins. */

@@ -378,6 +378,8 @@ export interface ReflectiveOptions {
   tiltStrength?: number;
   radius?: number;
   intro?: boolean;
+  /** Highest device pixel ratio to render at (1 for battery saver). */
+  maxScale?: number;
 }
 
 export type ReflectiveSettings = ReturnType<typeof reflectiveSettings>;
@@ -610,6 +612,7 @@ export function reflectiveSettings({
   tiltStrength = 12,
   radius = 24,
   intro = true,
+  maxScale = 2,
 }: ReflectiveOptions = {}) {
   const palette = theme === "light" ? "light" : "dark";
   return {
@@ -628,6 +631,7 @@ export function reflectiveSettings({
     radius: Math.max(0, radius),
     theme: palette === "light" ? 1 : 0,
     intro,
+    maxScale: clamp(maxScale, 1, 2),
   };
 }
 
@@ -724,7 +728,7 @@ export function createReflectivePlate(
   const resize = () => {
     size.width = body.offsetWidth;
     size.height = body.offsetHeight;
-    size.scale = Math.min(window.devicePixelRatio || 1, 2);
+    size.scale = Math.min(window.devicePixelRatio || 1, getSettings().maxScale);
     const w = Math.max(1, Math.round(size.width * size.scale));
     const h = Math.max(1, Math.round(size.height * size.scale));
     if (canvas.width !== w || canvas.height !== h) {
@@ -736,6 +740,8 @@ export function createReflectivePlate(
 
   const frame = (now: number) => {
     if (lost) return;
+    // The resolution cap is a setting (battery saver); follow it.
+    if (Math.min(window.devicePixelRatio || 1, getSettings().maxScale) !== size.scale) resize();
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
     const slow = now < slowUntil;

@@ -123,6 +123,9 @@ the cover:
   the mouse comes near and sends a pulse on click.
 
 Both need WebGL2. They are turned off when the system asks for reduced motion.
+When it asks for more contrast, the electric border glows and flickers less and
+the metal plate drops its moving highlights; in Battery saver mode the electric
+border draws at 30 fps without sparks and the plate renders at 1x resolution.
 **Edge light** adds colors flowing along the screen edges.
 
 ![The settings panel, open on the right side of the window](docs/screenshots/settings.webp)

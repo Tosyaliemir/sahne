@@ -431,6 +431,10 @@ export interface ElectricOptions {
   theme?: "dark" | "light";
   /** Freeze on the current frame and stop rendering (e.g. while paused). */
   paused?: boolean;
+  /** Frame rate cap; below 60 skips frames (battery saver). */
+  maxFps?: number;
+  /** Share of the default pixel budget (lower for battery saver). */
+  resolution?: number;
 }
 
 export type ElectricSettings = ReturnType<typeof electricSettings>;
@@ -456,6 +460,8 @@ export function electricSettings({
   cursorRadius = 90,
   theme = "dark",
   paused = false,
+  maxFps = 60,
+  resolution = 1,
 }: ElectricOptions = {}) {
   const base = parseColor(color);
   return {
@@ -478,6 +484,8 @@ export function electricSettings({
     interactive,
     cursorRadius: Math.max(1, cursorRadius),
     light: theme === "light",
+    maxFps: clamp(maxFps, 10, 60),
+    resolution: clamp(resolution, 0.1, 1),
   };
 }
 
@@ -554,7 +562,7 @@ export function createElectricBorder(
     const ratio = Math.min(
       window.devicePixelRatio || 1,
       2,
-      Math.sqrt(PIXEL_BUDGET / (canvasWidth * canvasHeight)),
+      Math.sqrt((PIXEL_BUDGET * s.resolution) / (canvasWidth * canvasHeight)),
     );
     const pixelWidth = Math.max(1, Math.round(canvasWidth * ratio));
     const pixelHeight = Math.max(1, Math.round(canvasHeight * ratio));
@@ -643,9 +651,13 @@ export function createElectricBorder(
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 
+  let lastDrawn = -Infinity;
   const frame = (now: number) => {
     if (lost) return;
     const s = getSettings();
+    // Frame cap: skip this frame but keep the loop (and `busy`) as it is.
+    if (s.maxFps < 60 && now - lastDrawn < 1000 / s.maxFps - 2) return;
+    lastDrawn = now;
     const dt = clamp((now - last) / 1000 || 0, 0, 0.05);
     last = Math.max(last, now);
     const motion = reduced ? 0.2 : 1;

@@ -123,3 +123,12 @@ body {
 body {
   background: transparent;
 }
+
+/* Visible keyboard focus on every control, in both windows (A3). Zero
+   specificity, so components can still fine-tune it; pointer clicks don't
+   show it. */
+:where(button, select, input, summary, a[href], [role="button"], [role="slider"], [tabindex]):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
