@@ -23,7 +23,6 @@ impl Paths {
         })
     }
 
-    /// Fallback when no home directory can be resolved: keep everything in /tmp.
     /// Fallback when there is no home directory. Never a predictable shared
     /// path such as `/tmp/sahne` (open to symlink and pre-creation attacks on
     /// multi-user systems): the per-user runtime dir if there is one, else a
@@ -54,8 +53,6 @@ impl Paths {
     }
 }
 
-/// Stable 64-bit FNV-1a hash, used for cache file names. (std's hasher is not
-/// guaranteed stable across Rust releases.)
 /// `$XDG_RUNTIME_DIR/sahne`, created 0700. The runtime dir itself is
 /// guaranteed to be owned by the user and 0700.
 #[cfg(unix)]
@@ -80,6 +77,8 @@ fn private_runtime_dir() -> Option<PathBuf> {
     None
 }
 
+/// Stable 64-bit FNV-1a hash, used for cache file names. (std's hasher is not
+/// guaranteed stable across Rust releases.)
 pub fn stable_hash(data: &str) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in data.as_bytes() {
