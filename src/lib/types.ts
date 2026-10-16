@@ -101,6 +101,8 @@ export interface Settings {
   screensaver_keep_awake: boolean;
   cover_effect: CoverEffect;
   performance_mode: PerformanceMode;
+  /** Announce each new lyric line to screen readers (aria-live). */
+  announce_lyrics: boolean;
 }
 
 export type PerformanceMode = "auto" | "quality" | "battery";

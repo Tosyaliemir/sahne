@@ -59,6 +59,7 @@
   let transforms: string[] = $state([]);
 
   const visible = (i: number) => i >= active - BEHIND && i <= active + AHEAD;
+  const seekTo = (line: Line) => player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs));
 
   /** Stacks visible lines upward from the active one, older ones further back. */
   function layout() {
@@ -118,7 +119,6 @@
     {#each lines as line, i (i)}
       {#if visible(i)}
         {@const d = i - active}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div
           class="line"
           class:active={d === 0}
@@ -127,8 +127,11 @@
           style:--age={Math.abs(d)}
           {@attach registerAt(lineEls, i)}
           role="button"
-          tabindex="-1"
-          onclick={() => player.seek(Math.max(0, line.start_ms + lyrics.totalOffsetMs))}
+          tabindex={Math.abs(d) <= 1 ? 0 : -1}
+          onclick={() => seekTo(line)}
+          onkeydown={(e) => {
+            if (e.key === "Enter") seekTo(line);
+          }}
         >
           {#if isBreakLine(line)}
             <div class="dots-wrap" {@attach registerAt(dotsEls, i)}>

@@ -124,7 +124,6 @@
     <!-- Only the visible window (plus one line either side, so lines slide
          in already laid out) is in the DOM; a song can have 100+ lines. -->
     {#if Math.abs(i - Math.max(0, active)) <= WINDOW + 1}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div
         class="line"
         class:active={d === 0}
@@ -134,8 +133,11 @@
         {@attach registerAt(lineEls, i)}
         style:transform={transforms[i]}
         role="button"
-        tabindex="-1"
+        tabindex={Math.abs(d) <= 1 ? 0 : -1}
         onclick={() => seekTo(line)}
+        onkeydown={(e) => {
+          if (e.key === "Enter") seekTo(line);
+        }}
       >
         {#if isBreak(i)}
           <div class="dots-wrap" {@attach registerAt(dotsEls, i)}>

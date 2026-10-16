@@ -56,6 +56,7 @@ export const defaultSettings: Settings = {
   screensaver_keep_awake: false,
   cover_effect: "none",
   performance_mode: "auto",
+  announce_lyrics: false,
 };
 
 export interface BackendState {

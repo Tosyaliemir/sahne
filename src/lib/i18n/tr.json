@@ -100,5 +100,7 @@
   "about.notices": "Üçüncü taraf bildirimleri",
   "about.license": "MIT Lisansı",
   "about.rust": "Rust bağımlılıklarının lisansları",
-  "about.npm": "Arayüz bağımlılıklarının lisansları"
+  "about.npm": "Arayüz bağımlılıklarının lisansları",
+  "settings.announceLyrics": "Sözleri ekran okuyucuya bildir",
+  "settings.announceHint": "Ekran okuyucu her yeni satırı okur; en fazla iki saniyede bir."
 }

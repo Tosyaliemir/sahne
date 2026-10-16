@@ -25,6 +25,7 @@
   import ControlBar from "./lib/components/ControlBar.svelte";
   import SettingsPanel from "./lib/components/SettingsPanel.svelte";
   import CoverArt from "./lib/components/CoverArt.svelte";
+  import LyricsAnnouncer from "./lib/components/LyricsAnnouncer.svelte";
 
   /** WebGL missing or failing: fall back to the CSS backdrop. */
   let flowUnsupported = $state(false);
@@ -316,6 +317,8 @@
     <div class="toast" role="status">{toast}</div>
   {/if}
 </main>
+
+<LyricsAnnouncer />
 
 {#if ui.settingsOpen}
   <SettingsPanel onClose={() => (ui.settingsOpen = false)} />

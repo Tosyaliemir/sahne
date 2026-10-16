@@ -100,5 +100,7 @@
   "about.notices": "Third-party notices",
   "about.license": "MIT License",
   "about.rust": "Rust dependency licences",
-  "about.npm": "Frontend dependency licences"
+  "about.npm": "Frontend dependency licences",
+  "settings.announceLyrics": "Announce lyrics to screen readers",
+  "settings.announceHint": "Reads each new line aloud with a screen reader, at most every two seconds."
 }

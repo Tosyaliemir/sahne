@@ -126,6 +126,8 @@ pub struct Settings {
     pub screensaver_keep_awake: bool,
     pub cover_effect: CoverEffect,
     pub performance_mode: PerformanceMode,
+    /// Announce each new lyric line to screen readers (aria-live).
+    pub announce_lyrics: bool,
 }
 
 impl Default for Settings {
@@ -149,6 +151,7 @@ impl Default for Settings {
             screensaver_keep_awake: false,
             cover_effect: CoverEffect::None,
             performance_mode: PerformanceMode::Auto,
+            announce_lyrics: false,
         }
     }
 }
@@ -178,7 +181,7 @@ impl Settings {
         let Some(map) = value.as_object() else {
             return (s, vec!["<root>"]);
         };
-        lenient_fields!(s, map, bad; preferred_player, lyrics_style, font, font_scale, backdrop_blur, backdrop_dim, global_offset_ms, mini_position, start_fullscreen, controls_hide_secs, language, backdrop_style, edge_glow, screensaver_enabled, screensaver_minutes, screensaver_keep_awake, cover_effect, performance_mode);
+        lenient_fields!(s, map, bad; preferred_player, lyrics_style, font, font_scale, backdrop_blur, backdrop_dim, global_offset_ms, mini_position, start_fullscreen, controls_hide_secs, language, backdrop_style, edge_glow, screensaver_enabled, screensaver_minutes, screensaver_keep_awake, cover_effect, performance_mode, announce_lyrics);
         (s, bad)
     }
 

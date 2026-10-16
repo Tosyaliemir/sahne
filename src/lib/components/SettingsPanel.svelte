@@ -8,9 +8,11 @@
   import { STYLES, ui } from "../stores/ui.svelte";
   import { t } from "../i18n/index.svelte";
   import AboutSection from "./AboutSection.svelte";
+  import { focusTrap } from "../focusTrap";
   import type { Settings } from "../types";
 
   let { onClose }: { onClose: () => void } = $props();
+  let closeButton: HTMLButtonElement | undefined = $state();
 
   const s = $derived(settings.current);
   let players = $state<string[]>([]);
@@ -55,14 +57,18 @@
   onclick={onClose}
   role="presentation"
 ></div>
-<aside
+<div
   class="panel"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="settings-title"
   transition:fly={{ x: 420, duration: ui.reducedMotion ? 0 : 320, opacity: 1 }}
-  aria-label={t("settings.title")}
+  {@attach focusTrap(() => closeButton)}
 >
   <header>
-    <h2>{t("settings.title")}</h2>
-    <button class="close" onclick={onClose} aria-label={t("settings.close")}>✕</button>
+    <h2 id="settings-title">{t("settings.title")}</h2>
+    <button class="close" bind:this={closeButton} onclick={onClose} aria-label={t("settings.close")}>✕</button
+    >
   </header>
 
   <section>
@@ -199,6 +205,15 @@
       </div>
     {/if}
     <p class="hint">{t("settings.offsetHint")}</p>
+    <label class="row check">
+      <span>{t("settings.announceLyrics")}</span>
+      <input
+        type="checkbox"
+        checked={s.announce_lyrics}
+        onchange={(e) => set("announce_lyrics", e.currentTarget.checked)}
+      />
+    </label>
+    <p class="hint">{t("settings.announceHint")}</p>
   </section>
 
   <section>
@@ -300,7 +315,7 @@
   </section>
 
   <AboutSection />
-</aside>
+</div>
 
 <style>
   .scrim {

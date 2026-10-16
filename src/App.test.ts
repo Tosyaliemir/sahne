@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent } from "@testing-library/svelte";
-import { commands, lyricsIn, mockBackend, playing, renderApp, settle } from "./test/backend";
+import { commands, defaultSettings, lyricsIn, mockBackend, playing, renderApp, settle } from "./test/backend";
 
 let cleanup: (() => void) | undefined;
 afterEach(() => cleanup?.());
@@ -91,10 +91,13 @@ describe("keyboard shortcuts (T1)", () => {
     const { queryByRole } = await show();
     await key(",");
     await settle();
-    expect(queryByRole("complementary", { name: "Settings" })).toBeTruthy();
+    const dialog = queryByRole("dialog", { name: "Settings" });
+    expect(dialog).toBeTruthy();
+    // Focus moves into the dialog (A1).
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Close");
     await key("Escape");
     await settle(400);
-    expect(queryByRole("complementary", { name: "Settings" })).toBeNull();
+    expect(queryByRole("dialog", { name: "Settings" })).toBeNull();
   });
 
   it("toggle the mini player", async () => {
@@ -134,5 +137,31 @@ describe("frame scheduler in the app (T1, P1)", () => {
     const fresh = await import("./lib/frames");
     await settle(300);
     expect(fresh.frames.running).toBe(false);
+  });
+});
+
+describe("accessibility (A1, A2)", () => {
+  it("lyric lines near the current one are focusable and Enter seeks", async () => {
+    const { getAllByRole, calls } = await show();
+    const lines = getAllByRole("button").filter((el) => el.classList.contains("line"));
+    const focusable = lines.filter((el) => el.tabIndex === 0);
+    expect(focusable.length).toBeGreaterThanOrEqual(2);
+    expect(focusable.length).toBeLessThanOrEqual(3);
+    await fireEvent.keyDown(focusable[focusable.length - 1], { key: "Enter" });
+    await settle();
+    expect(commands(calls, "seek")).toHaveLength(1);
+  });
+
+  it("announces the current line only when enabled", async () => {
+    const { container } = await show();
+    await settle(700);
+    const region = container.ownerDocument.querySelector("[aria-live=polite]");
+    expect(region?.textContent).toBe("");
+    cleanup?.();
+
+    const enabled = await show({ settings: { ...defaultSettings, announce_lyrics: true } });
+    await settle(700);
+    const live = enabled.container.ownerDocument.querySelector("[aria-live=polite]");
+    expect(live?.textContent).toBe("Çiçekler sabahı bekliyor");
   });
 });

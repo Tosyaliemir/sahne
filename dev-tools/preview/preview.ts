@@ -127,6 +127,7 @@ const settings: Settings = {
   cover_effect: (q.get("cover") as Settings["cover_effect"]) ?? "none",
   // Headless Chrome renders in software; keep the fluid backdrop anyway.
   performance_mode: (q.get("perf") as Settings["performance_mode"]) ?? "quality",
+  announce_lyrics: false,
 };
 
 const position = {
