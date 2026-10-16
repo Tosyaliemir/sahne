@@ -298,10 +298,10 @@ mod tests {
 
     #[test]
     fn decodes_lrclib_json() {
-        let json = r#"{"id":1,"name":"x","trackName":"Never Gonna Give You Up","artistName":"Rick Astley",
-            "albumName":"Whenever You Need Somebody","duration":213.0,"instrumental":false,"hasWordSync":false,
-            "plainLyrics":"We're no strangers\nto love\nyou know\nthe rules",
-            "syncedLyrics":"[00:18.68] We're no strangers\n[00:20.00]to love\n[00:22.84]You know\n[00:24.00]the rules"}"#;
+        let json = r#"{"id":1,"name":"x","trackName":"Işıklı Günler","artistName":"Örnek Sanatçı",
+            "albumName":"Deneme Albümü","duration":213.0,"instrumental":false,"hasWordSync":false,
+            "plainLyrics":"Çiçekler sabahı\nbekliyor\ngölgede üşüyen\nİstanbul",
+            "syncedLyrics":"[00:18.68] Çiçekler sabahı\n[00:20.00]bekliyor\n[00:22.84]gölgede üşüyen\n[00:24.00]İstanbul"}"#;
         let r: Record = serde_json::from_str(json).unwrap();
         assert_eq!(r.duration, Some(213.0));
         assert!(r.has_synced() && r.has_plain());

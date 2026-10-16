@@ -77,7 +77,7 @@ describe("wordTimings", () => {
   });
 
   it("is contiguous and ordered", () => {
-    const w = wordTimings(line(5000, 8000, "We're no strangers to love"));
+    const w = wordTimings(line(5000, 8000, "Sabah güneşi ağır ağır doğuyor"));
     for (let i = 1; i < w.length; i++) expect(w[i].start_ms).toBe(w[i - 1].end_ms);
     expect(w[0].start_ms).toBe(5000);
     expect(w[w.length - 1].end_ms).toBeLessThanOrEqual(8000);

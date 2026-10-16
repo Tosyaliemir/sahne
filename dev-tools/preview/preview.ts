@@ -21,9 +21,9 @@ const paused = q.get("paused") === "1";
 
 const track: TrackInfo = {
   id: "/preview/1",
-  title: "Şımarık",
-  artist: "Tarkan",
-  album: "Ölürüm Sana",
+  title: "Işıklı Günler",
+  artist: "Örnek Sanatçı",
+  album: "Deneme Albümü",
   length_ms: 234_000,
   art_url: `${location.origin}/dev-tools/preview/cover.png`,
   player: "sahnemock",
@@ -34,15 +34,16 @@ const lyricsData: LyricsLoaded = {
   track_id: track.id,
   state: (q.get("lyrics") as LyricsLoaded["state"]) ?? "synced",
   offset_ms: 0,
-  plain: "Takmış koluna elin adamını\nBeni görünce şımarık şımarık\nGülüyor bana dönüp\nÇıldırıyorum",
+  plain: "Çiçekler sabahı bekliyor\nGölgede üşüyen İstanbul\nIşıklar ağır ağır sönüyor\nŞarkı bitmeden dönüyoruz",
   lines: [
     line(0, 9_000, ""),
-    line(9_000, 12_000, "Takmış koluna elin adamını beni"),
-    line(12_000, 15_400, "Görünce şımarık şımarık gülüyor"),
-    line(15_400, 18_000, "Dönüp dönüp bakıyor ığdır çığlık"),
-    line(18_000, 21_000, "Öldürecek beni İstanbul'un ışıkları"),
+    line(9_000, 12_000, "Çiçekler sabahı bekliyor"),
+    line(12_000, 15_400, "Gölgede üşüyen İstanbul"),
+    line(15_400, 18_000, "Işıklar ağır ağır sönüyor"),
+    line(18_000, 21_000, "Şarkı bitmeden dönüyoruz"),
+    // Instrumental interlude.
     line(21_000, 30_000, ""),
-    line(30_000, 33_000, "Cik cik cik"),
+    line(30_000, 33_000, "Öğle güneşi çığlık çığlığa"),
   ],
 };
 

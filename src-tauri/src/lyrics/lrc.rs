@@ -226,14 +226,14 @@ mod tests {
 
     #[test]
     fn parses_basic_lines() {
-        let lrc = "[ar:Rick Astley]\n[ti:Never Gonna Give You Up]\n\
-                   [00:18.68] We're no strangers to love\n[00:22.84]You know the rules and so do I\n";
+        let lrc = "[ar:Örnek Sanatçı]\n[ti:Işıklı Günler]\n\
+                   [00:18.68] Çiçekler sabahı bekliyor\n[00:22.84]Gölgede üşüyen İstanbul\n";
         let lines = parse(lrc, 30_000);
         assert_eq!(
             starts(&lines),
             vec![
-                (18_680, "We're no strangers to love"),
-                (22_840, "You know the rules and so do I")
+                (18_680, "Çiçekler sabahı bekliyor"),
+                (22_840, "Gölgede üşüyen İstanbul")
             ]
         );
         assert_eq!(lines[0].end_ms, 22_840);
