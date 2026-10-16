@@ -7,7 +7,6 @@
 //! timeline only sparsely anyway, so polling is simpler and just as timely.
 //! There is no volume here: the API has none, so the UI hides the control.
 
-use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -348,14 +347,15 @@ fn save_thumbnail(
     let mut bytes = vec![0u8; read as usize];
     reader.ReadBytes(&mut bytes)?;
 
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    key.hash(&mut hasher);
-    let path = dir.join(format!("{:016x}.img", hasher.finish()));
+    // Stable across Rust releases, unlike DefaultHasher, so cached files stay valid.
+    let path = dir.join(format!("{}.img", crate::paths::stable_hash(key)));
     if let Err(e) = std::fs::create_dir_all(dir).and_then(|()| std::fs::write(&path, &bytes)) {
         tracing::warn!("could not cache thumbnail: {e}");
         return Ok(None);
     }
-    Ok(Some(format!("file://{}", path.display())))
+    // A proper file URL (file:///C:/...), percent-encoded, so paths with `%`
+    // or non-ASCII characters survive the round trip through the artwork service.
+    Ok(reqwest::Url::from_file_path(&path).ok().map(String::from))
 }
 
 /// Takes a pending `notify_one` permit without blocking.
