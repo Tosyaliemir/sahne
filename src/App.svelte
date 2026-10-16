@@ -11,6 +11,7 @@
   import { t } from "./lib/i18n/index.svelte";
   import { startFrameStats } from "./lib/perf";
   import { Lifecycle } from "./lib/lifecycle";
+  import { frames } from "./lib/frames";
   import Background from "./lib/components/Background.svelte";
   import FlowBackground from "./lib/components/FlowBackground.svelte";
   import StatusScreen from "./lib/components/StatusScreen.svelte";
@@ -49,6 +50,23 @@
         appWindow.isFullscreen().then((f) => (fullscreen = f)).catch(() => {});
       }),
     );
+    // Hidden or minimised: draw nothing. WebKitGTK doesn't always report
+    // minimising through visibilityState, so ask the window as well.
+    let minimized = false;
+    const updateHidden = () => {
+      const hidden = document.visibilityState === "hidden" || minimized;
+      ui.windowHidden = hidden;
+      frames.setHidden(hidden);
+    };
+    document.addEventListener("visibilitychange", updateHidden);
+    life.add(() => document.removeEventListener("visibilitychange", updateHidden));
+    life.add(
+      appWindow.onResized(async () => {
+        minimized = await appWindow.isMinimized().catch(() => false);
+        updateHidden();
+      }),
+    );
+    updateHidden();
     bumpControls();
     if (import.meta.env.DEV) life.add(startFrameStats("frames"));
     return () => {
@@ -77,6 +95,15 @@
     void settings.current.controls_hide_secs;
     untrack(bumpControls);
   });
+
+  // Mouse moves arrive at display rate; resetting timers that often is waste.
+  let lastMove = 0;
+  function onMouseMove(e: MouseEvent) {
+    if (e.timeStamp - lastMove < MOVE_THROTTLE_MS) return;
+    lastMove = e.timeStamp;
+    bumpControls();
+  }
+  const MOVE_THROTTLE_MS = 100;
 
   // --- toast ----------------------------------------------------------------
   let toast = $state<string | null>(null);
@@ -180,10 +207,16 @@
 
   const data = $derived(lyrics.forTrack);
 
+  // Ambient CSS animations (drifting backdrop, edge light...) pause with
+  // playback and while hidden; see `html.idle` rules in the components.
+  $effect(() => {
+    document.documentElement.classList.toggle("idle", ui.windowHidden || player.status !== "playing");
+  });
+
   const style = $derived(ui.effectiveStyle);
 </script>
 
-<svelte:window onkeydown={onKey} onmousemove={bumpControls} onmousedown={bumpControls} />
+<svelte:window onkeydown={onKey} onmousemove={onMouseMove} onmousedown={bumpControls} />
 
 {#if settings.current.backdrop_style === "akiskan" && !flowUnsupported}
   <FlowBackground onUnsupported={() => (flowUnsupported = true)} />
@@ -411,6 +444,12 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     animation: fade-in 200ms ease;
+  }
+  /* While the backdrop moves, a backdrop blur is recomputed every frame;
+     a denser fill looks close and costs nothing. (Paused, it's static.) */
+  :global(html:not(.idle)) .toast {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-dark-bg) 86%, transparent);
   }
   @keyframes fade-in {
     from { opacity: 0; }

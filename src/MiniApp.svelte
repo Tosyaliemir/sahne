@@ -9,6 +9,8 @@
   import { t } from "./lib/i18n/index.svelte";
   import { formatTime } from "./lib/format";
   import { Lifecycle } from "./lib/lifecycle";
+  import { onPlaybackFrame } from "./lib/playbackFrames";
+  import { trackVisibility } from "./lib/frames";
   import VolumeControl from "./lib/components/VolumeControl.svelte";
   import Background from "./lib/components/Background.svelte";
   import FlowBackground from "./lib/components/FlowBackground.svelte";
@@ -24,15 +26,19 @@
     life.add(player.start());
     life.add(palette.start());
 
-    let raf = requestAnimationFrame(function loop(now) {
-      const pos = player.positionNow(now);
-      const length = player.track?.length_ms ?? 0;
-      if (progressEl && length > 0) progressEl.style.transform = `scaleX(${Math.min(1, pos / length)})`;
-      raf = requestAnimationFrame(loop);
-    });
+    life.add(
+      onPlaybackFrame((now) => {
+        const pos = player.positionNow(now);
+        const length = player.track?.length_ms ?? 0;
+        if (progressEl && length > 0) progressEl.style.transform = `scaleX(${Math.min(1, pos / length)})`;
+      }),
+    );
+    life.add(trackVisibility());
+    const onVisibility = () => (ui.windowHidden = document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", onVisibility);
+    life.add(() => document.removeEventListener("visibilitychange", onVisibility));
 
     return () => {
-      cancelAnimationFrame(raf);
       life.dispose();
     };
   });
@@ -64,6 +70,9 @@
     artFailed = false;
   });
   const fadeMs = $derived(ui.reducedMotion ? 0 : 600);
+  $effect(() => {
+    document.documentElement.classList.toggle("idle", ui.windowHidden || player.status !== "playing");
+  });
 </script>
 
 <svelte:window onkeydown={onKey} />

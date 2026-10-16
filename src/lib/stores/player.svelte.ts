@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { PlaybackClock } from "../clock";
+import { frames } from "../frames";
 import type {
   PlaybackState,
   PlaybackStatus,
@@ -78,6 +79,7 @@ class PlayerStore {
   }
 
   private onTrack(track: TrackInfo | null): void {
+    frames.wake();
     this.sawEvent = true;
     this.connected = true;
     this.track = track;
@@ -85,6 +87,7 @@ class PlayerStore {
   }
 
   private onPlayback(state: PlaybackState): void {
+    frames.wake();
     this.sawEvent = true;
     this.connected = true;
     this.playerName = state.player;
@@ -92,12 +95,14 @@ class PlayerStore {
   }
 
   private onPosition(sync: PositionSync): void {
+    frames.wake();
     this.sawEvent = true;
     this.source = sync.source;
     this.clock.sync(sync, performance.now());
   }
 
   private onDisconnected(): void {
+    frames.wake();
     this.sawEvent = true;
     this.connected = false;
     this.playerName = null;

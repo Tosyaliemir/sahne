@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import type { Line, LyricsLoaded, Word } from "../types";
   import { player } from "../stores/player.svelte";
+  import { onPlaybackFrame } from "../playbackFrames";
   import { lyrics } from "../stores/lyrics.svelte";
   import { activeLineIndex, INTERLUDE_MIN_MS, lyricTime, wordTimings } from "../timing";
   import { LineFiller } from "../wordFill";
@@ -112,7 +113,7 @@
   });
 
   onMount(() => {
-    let raf = requestAnimationFrame(function loop(now) {
+    const stop = onPlaybackFrame((now) => {
       const t = lyricTime(player.clock.position(now), lyrics.totalOffsetMs);
       const idx = activeLineIndex(lines, t);
       if (idx !== active) {
@@ -126,12 +127,11 @@
         const progress = Math.min(1, Math.max(0, (t - l.start_ms) / (l.end_ms - l.start_ms)));
         dots.style.setProperty("--progress", progress.toFixed(3));
       }
-      raf = requestAnimationFrame(loop);
     });
     const onResize = () => layout();
     window.addEventListener("resize", onResize);
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       window.removeEventListener("resize", onResize);
     };
   });
@@ -236,5 +236,8 @@
       animation: none;
       transform: rotateY(-12deg) rotateX(5deg);
     }
+  }
+  :global(html.idle) .wall {
+    animation-play-state: paused;
   }
 </style>

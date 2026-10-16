@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { player } from "../stores/player.svelte";
+  import { frames } from "../frames";
   import { formatTime } from "../format";
   import { t } from "../i18n/index.svelte";
 
@@ -12,17 +13,21 @@
 
   onMount(() => {
     let last = -1;
-    let raf = requestAnimationFrame(function loop(now) {
-      if (active && fillEl && length > 0) {
+    return frames.add({
+      tick(now) {
+        if (!fillEl || length <= 0) return;
         const f = Math.round(Math.min(1, player.positionNow(now) / length) * 2000) / 2000;
         if (f !== last) {
           fillEl.style.transform = `scaleX(${f})`;
           last = f;
         }
-      }
-      raf = requestAnimationFrame(loop);
+      },
+      needsFrame: () => active && player.status === "playing",
     });
-    return () => cancelAnimationFrame(raf);
+  });
+  // Showing the bar again needs one frame to catch the fill up.
+  $effect(() => {
+    if (active) frames.wake();
   });
 
   function seekFromPointer(e: MouseEvent) {

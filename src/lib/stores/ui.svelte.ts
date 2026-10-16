@@ -12,6 +12,8 @@ class UiStore {
   reducedMotion = $state(reducedMotion?.matches ?? false);
   controlsVisible = $state(true);
   settingsOpen = $state(false);
+  /** The window is hidden or minimised; nothing should animate. */
+  windowHidden = $state(false);
   /** The backend put us on screen because the computer went idle. */
   screensaver = $state(false);
   /**

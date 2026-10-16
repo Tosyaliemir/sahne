@@ -11,8 +11,9 @@
     color,
     radius = 14,
     active = true,
+    paused = false,
     children,
-  }: { color: string; radius?: number; active?: boolean; children: Snippet } = $props();
+  }: { color: string; radius?: number; active?: boolean; paused?: boolean; children: Snippet } = $props();
 
   let container: HTMLElement | undefined = $state();
   let canvas: HTMLCanvasElement | undefined = $state();
@@ -23,6 +24,7 @@
     electricSettings({
       color,
       active,
+      paused,
       borderRadius: radius,
       glow: 0.9,
       intensity: 0.85,

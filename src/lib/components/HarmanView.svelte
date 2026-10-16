@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onPlaybackFrame } from "../playbackFrames";
   import { onMount } from "svelte";
   import type { LyricsLoaded } from "../types";
   import { player } from "../stores/player.svelte";
@@ -23,7 +24,7 @@
 
   onMount(() => {
     let calmSince = -1;
-    let raf = requestAnimationFrame(function loop(now) {
+    return onPlaybackFrame((now) => {
       const i = activeLineIndex(data.lines, lyricTime(player.clock.position(now), lyrics.totalOffsetMs));
       const fast = i >= 0 && plan[i] === true;
       if (fast) {
@@ -33,9 +34,7 @@
         if (calmSince < 0) calmSince = now;
         else if (now - calmSince >= RETURN_DELAY_MS) kinetic = false;
       }
-      raf = requestAnimationFrame(loop);
     });
-    return () => cancelAnimationFrame(raf);
   });
 </script>
 

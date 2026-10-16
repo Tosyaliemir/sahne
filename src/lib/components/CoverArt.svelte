@@ -1,5 +1,6 @@
 <script lang="ts">
   import { palette } from "../stores/palette.svelte";
+  import { player } from "../stores/player.svelte";
   import { settings } from "../stores/settings.svelte";
   import { ui } from "../stores/ui.svelte";
   import { t } from "../i18n/index.svelte";
@@ -50,7 +51,7 @@
 {:else if chosen === "metal"}
   <MetalCover {src} textureSrc={palette.textureSrc} tint={lighten(accent, 0.45)} radius={radius + 4} />
 {:else if chosen === "elektrik"}
-  <ElectricBorder color={accent} {radius} {active}>
+  <ElectricBorder color={accent} {radius} {active} paused={player.status !== "playing" || ui.windowHidden}>
     {@render plain()}
   </ElectricBorder>
 {:else}

@@ -405,10 +405,12 @@ export function electricSettings({
   intro = true,
   interactive = true,
   cursorRadius = 90,
-  theme = 'dark'
+  theme = 'dark',
+  paused = false
 } = {}) {
   const base = parseColor(color);
   return {
+    paused,
     core: base.map(channel => channel + (1 - channel) * 0.55),
     glowColor: glowColor ? parseColor(glowColor) : base,
     speed: Math.max(0, speed),
@@ -571,7 +573,8 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
     const dt = clamp((now - last) / 1000 || 0, 0, 0.05);
     last = Math.max(last, now);
     const motion = reduced ? 0.2 : 1;
-    time += dt * s.speed * motion;
+    // Paused: the light holds still on its last frame (see `busy` below).
+    if (!s.paused) time += dt * s.speed * motion;
 
     if (s.active && !wasActive) reveal = 0;
     wasActive = s.active;
@@ -592,10 +595,12 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
     hover.y += hover.vy * dt;
     hover.power += ((engaged ? 1 : 0) - hover.power) * (1 - Math.exp(-dt / (engaged ? 0.3 : 0.55)));
 
+    // Sparks age with `time`, which stands still while paused: drop them.
+    if (s.paused) sparks.length = 0;
     for (let index = sparks.length - 1; index >= 0; index--) {
       if (time - sparks[index].born > sparks[index].life) sparks.splice(index, 1);
     }
-    if (!reduced && s.active && reveal >= 1 && s.arcs > 0 && sparks.length < ARCS) {
+    if (!reduced && !s.paused && s.active && reveal >= 1 && s.arcs > 0 && sparks.length < ARCS) {
       const chance = dt * s.speed * s.arcs;
       if (Math.random() < chance * 5 * hover.power) {
         sparks.push(spawnArc(time, nearestOn(path, hover.x - size.width / 2, hover.y - size.height / 2)));
@@ -638,7 +643,9 @@ export function createElectricBorder(container, canvas, getSettings, { isFirst =
 
     render(s, hover.power * (s.interactive ? 1 : 0));
 
-    const busy = power > 0.002 || s.active || sparks.length > 0;
+    const settled = Math.abs((s.active ? 1 : 0) - power) < 0.002 && (!s.active || reveal >= 1);
+    // Paused and settled: stop drawing; the canvas keeps the last frame.
+    const busy = s.paused ? !settled || sparks.length > 0 : power > 0.002 || s.active || sparks.length > 0;
     if (busy && visible && pageVisible) raf = requestAnimationFrame(frame);
   };
 

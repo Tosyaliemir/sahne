@@ -135,4 +135,8 @@
       animation: none;
     }
   }
+  /* Frozen while paused or hidden, like every ambient animation. */
+  :global(html.idle) .backdrop :global(*) {
+    animation-play-state: paused;
+  }
 </style>

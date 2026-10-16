@@ -2,6 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Palette, PaletteChanged } from "../types";
 import { player } from "./player.svelte";
+import { frames } from "../frames";
 
 const NEUTRAL: Palette = {
   dominant: "#5c5c66",
@@ -116,6 +117,7 @@ class PaletteStore {
   async start(): Promise<() => void> {
     const unlisten = await listen<PaletteChanged>("palette-changed", (e) => {
       this.current = e.payload;
+      frames.wake();
       void this.loadImages(e.payload);
     });
     try {

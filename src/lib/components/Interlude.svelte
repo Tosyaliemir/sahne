@@ -34,4 +34,7 @@
       animation: none;
     }
   }
+  :global(html.idle) .interlude {
+    animation-play-state: paused;
+  }
 </style>

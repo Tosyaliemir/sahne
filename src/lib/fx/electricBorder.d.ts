@@ -18,6 +18,8 @@ export interface ElectricOptions {
   interactive?: boolean;
   cursorRadius?: number;
   theme?: "dark" | "light";
+  /** Freeze on the current frame and stop rendering (e.g. while paused). */
+  paused?: boolean;
 }
 export function electricSettings(options?: ElectricOptions): Record<string, unknown>;
 export function createElectricBorder(
