@@ -122,6 +122,12 @@
     transform: translateY(0);
     pointer-events: auto;
   }
+  /* While the backdrop moves the blur is recomputed every frame (costly on
+     integrated GPUs); a denser fill looks close. Paused, it's static. */
+  :global(html:not(.idle)) .bar.visible {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-dark-bg) 86%, transparent);
+  }
   .track {
     display: flex;
     align-items: center;
