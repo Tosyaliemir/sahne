@@ -506,7 +506,13 @@ mod tests {
                 .local_addr()
                 .unwrap()
                 .port();
-            let client = Client::with(&format!("http://127.0.0.1:{port}/api"), FAST).unwrap();
+            // Windows retries a refused connection for about two seconds, so
+            // the request needs more than FAST's timeout to see the refusal.
+            let timing = Timing {
+                timeout: Duration::from_secs(10),
+                ..FAST
+            };
+            let client = Client::with(&format!("http://127.0.0.1:{port}/api"), timing).unwrap();
             let got = client.get("a", "b", "", 1).await;
             assert!(matches!(got, Err(FetchError::Offline(_))), "{got:?}");
         }
