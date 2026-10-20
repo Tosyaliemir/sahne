@@ -53,7 +53,7 @@ wiremock = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # MPRIS over the session bus; tokio integration so it shares Tauri's runtime.
-zbus = { version = "5", default-features = false, features = ["tokio"] }
+zbus = { version = "6", default-features = false, features = ["tokio"] }
 # Merging D-Bus signal streams in the player loop.
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # Idle detection on Wayland.
