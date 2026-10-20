@@ -7,8 +7,8 @@ use futures_util::StreamExt;
 use tauri::AppHandle;
 use tokio::time::MissedTickBehavior;
 use zbus::fdo::DBusProxy;
-use zbus::zvariant::ObjectPath;
 use zbus::Connection;
+use zbus::ObjectPath;
 
 use super::mpris::{parse_metadata, short_name, PlayerProxy, MPRIS_PREFIX};
 
@@ -159,7 +159,7 @@ async fn select_player(
             continue;
         };
         let playing = match PlayerProxy::builder(conn)
-            .destination(name.to_string())?
+            .destination(name.to_string())
             .build()
             .await
         {
@@ -185,7 +185,7 @@ async fn follow(
     owners: &mut zbus::MessageStream,
 ) -> AppResult<Exit> {
     let proxy = PlayerProxy::builder(conn)
-        .destination(bus_name.to_owned())?
+        .destination(bus_name.to_owned())
         .build()
         .await?;
     let short = short_name(bus_name).to_owned();
@@ -286,11 +286,11 @@ struct OwnerChange {
 async fn player_owner_changes(conn: &Connection) -> zbus::Result<zbus::MessageStream> {
     let rule = zbus::MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
-        .sender("org.freedesktop.DBus")?
-        .interface("org.freedesktop.DBus")?
-        .member("NameOwnerChanged")?
-        .arg0ns(MPRIS_NAMESPACE)?
-        .build();
+        .sender("org.freedesktop.DBus")
+        .interface("org.freedesktop.DBus")
+        .member("NameOwnerChanged")
+        .arg0ns(MPRIS_NAMESPACE)
+        .build()?;
     zbus::MessageStream::for_match_rule(rule, conn, None).await
 }
 

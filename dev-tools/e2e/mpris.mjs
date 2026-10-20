@@ -58,7 +58,18 @@ function run(name, cmd, args, env = {}) {
       });
     },
     mark: () => lines.length,
-    stop: () => child.kill("SIGTERM"),
+    /** Asks the process to quit and resolves once it has exited (SIGKILL after 5 s). */
+    stop() {
+      if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => child.kill("SIGKILL"), 5_000);
+        child.once("exit", () => {
+          clearTimeout(timer);
+          resolve();
+        });
+        child.kill("SIGTERM");
+      });
+    },
   };
 }
 
@@ -125,9 +136,13 @@ try {
   failed = true;
   console.error(`FAIL ${e.message}`);
 } finally {
-  mock.stop();
-  sahne.stop();
-  rmSync(home, { recursive: true, force: true });
+  // Wait for both to exit: Sahne can still be writing caches under `home`.
+  await Promise.all([mock.stop(), sahne.stop()]);
+  try {
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch (e) {
+    console.warn(`could not remove ${home}: ${e.message}`);
+  }
 }
 console.log(`${steps.length} step(s) passed`);
 process.exit(failed ? 1 : 0);

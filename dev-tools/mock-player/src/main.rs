@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{ObjectPath, OwnedValue, Value};
 use zbus::{connection, interface};
+use zbus::{ObjectPath, OwnedVariant, Variant};
 
 const BUS_NAME: &str = "org.mpris.MediaPlayer2.sahnemock";
 const PATH: &str = "/org/mpris/MediaPlayer2";
@@ -212,23 +212,23 @@ impl Player {
     }
 
     #[zbus(property)]
-    fn metadata(&self) -> HashMap<String, OwnedValue> {
+    fn metadata(&self) -> HashMap<String, OwnedVariant> {
         let t = self.track();
-        let mut m: HashMap<String, OwnedValue> = HashMap::new();
-        let mut put = |k: &str, v: Value<'_>| {
+        let mut m: HashMap<String, OwnedVariant> = HashMap::new();
+        let mut put = |k: &str, v: Variant<'_>| {
             if let Ok(owned) = v.try_to_owned() {
                 m.insert(k.into(), owned);
             }
         };
         if let Ok(path) = ObjectPath::try_from(self.track_path()) {
-            put("mpris:trackid", Value::from(path));
+            put("mpris:trackid", Variant::from(path));
         }
-        put("mpris:length", Value::from(t.length_us));
-        put("xesam:title", Value::from(t.title.as_str()));
-        put("xesam:album", Value::from(t.album.as_str()));
-        put("xesam:artist", Value::from(vec![t.artist.as_str()]));
+        put("mpris:length", Variant::from(t.length_us));
+        put("xesam:title", Variant::from(t.title.as_str()));
+        put("xesam:album", Variant::from(t.album.as_str()));
+        put("xesam:artist", Variant::from(vec![t.artist.as_str()]));
         if let Some(art) = &t.art_url {
-            put("mpris:artUrl", Value::from(art.as_str()));
+            put("mpris:artUrl", Variant::from(art.as_str()));
         }
         m
     }
@@ -343,10 +343,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         zero_position,
     };
     let first = player.track().clone();
-    let conn = connection::Builder::session()?
-        .name(BUS_NAME)?
-        .serve_at(PATH, Root)?
-        .serve_at(PATH, player)?
+    let conn = connection::Builder::session()
+        .name(BUS_NAME)
+        .serve_at(PATH, Root)
+        .serve_at(PATH, player)
         .build()
         .await?;
     println!(
