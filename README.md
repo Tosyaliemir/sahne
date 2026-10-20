@@ -30,9 +30,9 @@ album artwork's colors.
 
 ## Installation
 
-Prebuilt packages are published on the
-[Releases](https://github.com/Tosyaliemir/sahne/releases) page. No release
-has been published yet; until then, [build from source](#building-from-source).
+Download the latest version from the
+[Releases](https://github.com/Tosyaliemir/sahne/releases/latest) page, or
+[build from source](#building-from-source).
 
 Each release provides:
 

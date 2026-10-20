@@ -9,7 +9,8 @@
 3. Run `pnpm release <version>` (for example `pnpm release 0.2.0`). It sets the
    version in `package.json`, `src-tauri/Cargo.toml` and `Cargo.lock`
    (`tauri.conf.json` reads `package.json`), moves "Unreleased" in the
-   changelog under the new version, commits, and creates an annotated tag.
+   changelog under the new version, regenerates the licence lists (this needs
+   `cargo-about`), commits, and creates an annotated tag.
    Nothing is pushed.
 4. Push: `git push && git push origin v<version>`.
 5. The **Release** workflow builds the Linux packages (x86_64, plus aarch64 when

@@ -30,9 +30,8 @@ renklerinden oluşturulan bir arka planın üzerinde gösterir.
 
 ## Kurulum
 
-Hazır paketler [Releases](https://github.com/Tosyaliemir/sahne/releases)
-sayfasında yayımlanır. Henüz yayımlanmış bir sürüm yok; o zamana kadar
-[kaynaktan derleyin](#kaynaktan-derleme).
+Son sürümü [Releases](https://github.com/Tosyaliemir/sahne/releases/latest)
+sayfasından indirin ya da [kaynaktan derleyin](#kaynaktan-derleme).
 
 Her sürümde şunlar bulunur:
 
