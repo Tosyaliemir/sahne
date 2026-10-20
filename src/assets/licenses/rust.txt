@@ -4662,7 +4662,7 @@ SOFTWARE.
 ================================================================================
 MIT License (MIT)
 Used by:
-  - sahne 0.1.0 (https://github.com/Tosyaliemir/sahne)
+  - sahne 0.2.0 (https://github.com/Tosyaliemir/sahne)
   - brotli-decompressor 6.0.1 (https://github.com/dropbox/rust-brotli-decompressor)
   - cargo_toml 1.0.1 (https://gitlab.com/lib.rs/cargo_toml)
   - dlopen2 0.8.2 (https://github.com/OpenByteDev/dlopen2)
