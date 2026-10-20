@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::{OwnedVariant, Variant};
 
 use crate::events::TrackInfo;
 
@@ -17,17 +17,13 @@ pub trait Player {
     fn next(&self) -> zbus::Result<()>;
     fn previous(&self) -> zbus::Result<()>;
     fn seek(&self, offset_us: i64) -> zbus::Result<()>;
-    fn set_position(
-        &self,
-        track_id: &zbus::zvariant::ObjectPath<'_>,
-        position_us: i64,
-    ) -> zbus::Result<()>;
+    fn set_position(&self, track_id: &zbus::ObjectPath<'_>, position_us: i64) -> zbus::Result<()>;
 
     #[zbus(signal)]
     fn seeked(&self, position_us: i64) -> zbus::Result<()>;
 
     #[zbus(property)]
-    fn metadata(&self) -> zbus::Result<HashMap<String, OwnedValue>>;
+    fn metadata(&self) -> zbus::Result<HashMap<String, OwnedVariant>>;
     #[zbus(property)]
     fn playback_status(&self) -> zbus::Result<String>;
     #[zbus(property)]
@@ -49,7 +45,7 @@ pub fn short_name(bus_name: &str) -> &str {
 
 /// Builds a [`TrackInfo`] from an MPRIS metadata map. Returns `None` when
 /// there is no title (players report empty metadata while idle).
-pub fn parse_metadata(meta: &HashMap<String, OwnedValue>, player: &str) -> Option<TrackInfo> {
+pub fn parse_metadata(meta: &HashMap<String, OwnedVariant>, player: &str) -> Option<TrackInfo> {
     let title = meta.get("xesam:title").and_then(|v| as_string(v))?;
     if title.trim().is_empty() {
         return None;
@@ -90,31 +86,31 @@ pub fn parse_metadata(meta: &HashMap<String, OwnedValue>, player: &str) -> Optio
 // Players disagree on variant types (Spotify sends trackid as `s` and length
 // as `t`; the spec says `o` and `x`), so accept every reasonable encoding.
 
-fn as_string(v: &Value<'_>) -> Option<String> {
+fn as_string(v: &Variant<'_>) -> Option<String> {
     match v {
-        Value::Str(s) => Some(s.to_string()),
-        Value::ObjectPath(p) => Some(p.to_string()),
-        Value::Value(inner) => as_string(inner),
+        Variant::Str(s) => Some(s.to_string()),
+        Variant::ObjectPath(p) => Some(p.to_string()),
+        Variant::Variant(inner) => as_string(inner),
         _ => None,
     }
 }
 
-fn as_string_list(v: &Value<'_>) -> Vec<String> {
+fn as_string_list(v: &Variant<'_>) -> Vec<String> {
     match v {
-        Value::Array(arr) => arr.iter().filter_map(as_string).collect(),
-        Value::Value(inner) => as_string_list(inner),
+        Variant::Array(arr) => arr.iter().filter_map(as_string).collect(),
+        Variant::Variant(inner) => as_string_list(inner),
         other => as_string(other).into_iter().collect(),
     }
 }
 
-fn as_u64(v: &Value<'_>) -> Option<u64> {
+fn as_u64(v: &Variant<'_>) -> Option<u64> {
     match v {
-        Value::U64(n) => Some(*n),
-        Value::I64(n) => u64::try_from(*n).ok(),
-        Value::U32(n) => Some(u64::from(*n)),
-        Value::I32(n) => u64::try_from(*n).ok(),
-        Value::F64(n) if *n >= 0.0 => Some(*n as u64),
-        Value::Value(inner) => as_u64(inner),
+        Variant::U64(n) => Some(*n),
+        Variant::I64(n) => u64::try_from(*n).ok(),
+        Variant::U32(n) => Some(u64::from(*n)),
+        Variant::I32(n) => u64::try_from(*n).ok(),
+        Variant::F64(n) if *n >= 0.0 => Some(*n as u64),
+        Variant::Variant(inner) => as_u64(inner),
         _ => None,
     }
 }
@@ -122,9 +118,9 @@ fn as_u64(v: &Value<'_>) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zbus::zvariant::ObjectPath;
+    use zbus::ObjectPath;
 
-    fn ov<'a>(v: impl Into<Value<'a>>) -> OwnedValue {
+    fn ov<'a>(v: impl Into<Variant<'a>>) -> OwnedVariant {
         v.into().try_to_owned().unwrap()
     }
 

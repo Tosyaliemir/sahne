@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The Linux backend uses zbus 6 for D-Bus (MPRIS, idle time, screensaver
+  inhibition). zbus 5's helper crates are unmaintained (RUSTSEC-2026-0370,
+  -0371, -0372).
+
 ## [0.2.0] - 2026-10-16
 
 The 0.2.0 revision: security hardening, correctness and performance fixes,
