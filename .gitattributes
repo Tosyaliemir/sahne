@@ -1,0 +1,7 @@
+# GitHub's language bar (Linguist): count the app itself (Rust, TypeScript,
+# Svelte), not the build and test tooling or the small entry and config files.
+dev-tools/** linguist-detectable=false
+*.html linguist-detectable=false
+src/app.css linguist-detectable=false
+eslint.config.js linguist-detectable=false
+svelte.config.js linguist-detectable=false

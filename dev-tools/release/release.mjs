@@ -1,8 +1,9 @@
 // Prepares a release:  pnpm release 0.2.0
 // Sets the version in package.json, Cargo.toml and Cargo.lock (tauri.conf.json
 // reads package.json), turns "Unreleased" in CHANGELOG.md into the new
-// version, commits, and creates an annotated tag. Nothing is pushed; push the
-// commit and the tag yourself to start the release workflow.
+// version, regenerates the licence lists, commits, and creates an annotated
+// tag. Nothing is pushed; push the commit and the tag yourself to start the
+// release workflow.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -50,7 +51,17 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const changelogPath = `${root}/CHANGELOG.md`;
   writeFileSync(changelogPath, releaseChangelog(readFileSync(changelogPath, "utf8"), version, date));
 
-  run("git", ["add", "package.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "CHANGELOG.md"]);
+  // The Rust licence list names Sahne's own version; CI fails if it is stale.
+  run("node", ["dev-tools/licenses/generate.mjs"], { stdio: ["ignore", "ignore", "inherit"] });
+
+  run("git", [
+    "add",
+    "package.json",
+    "src-tauri/Cargo.toml",
+    "src-tauri/Cargo.lock",
+    "CHANGELOG.md",
+    "src/assets/licenses",
+  ]);
   run("git", ["commit", "-m", `chore(release): ${version}`]);
   run("git", ["tag", "-a", `v${version}`, "-m", `Sahne ${version}`]);
   console.log(`Tagged v${version}. Push it with:\n  git push && git push origin v${version}`);
